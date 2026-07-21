@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Collection Entry</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --border: #dfdcd3;
+    --muted: #6b6a66;
+    --text: #1f1e1c;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --success: #3b6d11;
+    --success-bg: #eaf3de;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    background: #fff;
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  section {
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-of-type { border-bottom: none; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px 16px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  label .req { color: var(--danger); }
+  input, select {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    color: var(--text);
+    background: #fff;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    margin-top: 8px;
+  }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+  }
+  .metric {
+    background: #f7f6f2;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .metric label { margin-bottom: 2px; }
+  .metric .value { font-size: 18px; font-weight: 600; }
+  .check-ok { color: var(--success); }
+  .check-error { color: var(--danger); }
+  .new-client-fields {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--accent-bg);
+    border-radius: var(--radius);
+  }
+  .new-client-fields .tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .hidden { display: none !important; }
+  button#save-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+  button#save-btn:hover:not(:disabled) { background: #0c447c; }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  #status-msg {
+    font-size: 13px;
+  }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  datalist { }
+</style>
+</head>
+<body>
+
+<section>
+  <h2>Entry</h2>
+  <div class="row">
+    <div>
+      <label>Date <span class="req">*</span></label>
+      <input type="date" id="f-date">
+    </div>
+    <div>
+      <label>Encoded by <span class="req">*</span></label>
+      <select id="f-encoded-by">
+        <option value="Gladys">Gladys</option>
+        <option value="Ayk">Ayk</option>
+        <option value="Atheena">Atheena</option>
+      </select>
+    </div>
+    <div>
+      <label>Office <span class="req">*</span></label>
+      <select id="f-office">
+        <option value="Dagupan">Dagupan</option>
+        <option value="Pozorrubio">Pozorrubio</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Client</h2>
+  <div class="row">
+    <div>
+      <label>Client <span class="req">*</span></label>
+      <input type="text" id="f-client" list="client-list" placeholder="Type a client name" autocomplete="off">
+      <datalist id="client-list"></datalist>
+    </div>
+  </div>
+  <div class="new-client-fields hidden" id="new-client-box">
+    <span class="tag">New client &mdash; will be added to Clients</span>
+    <div class="row">
+      <div>
+        <label>Handler</label>
+        <input type="text" id="f-handler" placeholder="Staff handling this client">
+      </div>
+      <div>
+        <label>TIN</label>
+        <input type="text" id="f-tin" placeholder="Optional">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Payment</h2>
+  <div class="row">
+    <div>
+      <label>Method <span class="req">*</span></label>
+      <select id="f-method">
+        <option value="Cash">Cash</option>
+        <option value="Check">Check</option>
+        <option value="Bank transfer">Bank transfer</option>
+        <option value="GCash">GCash</option>
+      </select>
+    </div>
+    <div>
+      <label>Amount <span class="req">*</span></label>
+      <input type="number" id="f-amount" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Monthly fees</label>
+      <input type="number" id="f-monthly-fees" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Quarterly/Annual</label>
+      <input type="number" id="f-quarterly-annual" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Other fees</label>
+      <input type="number" id="f-other-fees" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Printing</label>
+      <input type="number" id="f-printing" step="1" placeholder="0">
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Contributions</h2>
+  <div class="row">
+    <div>
+      <label>SSS</label>
+      <input type="number" id="f-sss" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>PHIC</label>
+      <input type="number" id="f-phic" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>HDMF</label>
+      <input type="number" id="f-hdmf" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Others/Permits</label>
+      <input type="number" id="f-others-permits" step="1" placeholder="0">
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Totals &amp; status</h2>
+  <div class="row" style="margin-bottom:14px;">
+    <div class="metric">
+      <label>Fee distributions total</label>
+      <div class="value" id="calc-distributed">P0</div>
+    </div>
+    <div class="metric">
+      <label>Contributions total</label>
+      <div class="value" id="calc-contributions">P0</div>
+    </div>
+    <div class="metric">
+      <label>Tax (balancing figure)</label>
+      <div class="value" id="calc-tax">P0</div>
+    </div>
+  </div>
+  <div class="row" style="margin-bottom:14px;">
+    <div>
+      <label>Check</label>
+      <div id="calc-check" class="check-ok">OK</div>
+    </div>
+    <div>
+      <label>Entry label (preview)</label>
+      <div id="calc-label">&mdash;</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="checkbox-row">
+      <input type="checkbox" id="f-deposited">
+      <label style="margin-bottom:0;">Deposited?</label>
+    </div>
+    <div>
+      <label>Deposit date</label>
+      <input type="date" id="f-deposit-date">
+    </div>
+  </div>
+</section>
+
+<div class="footer-row">
+  <button id="save-btn">Save entry</button>
+  <span id="status-msg"></span>
+</div>
+
+<script>
+let clients = []; // {id, name, office, handler, tin}
+let depositDateTouched = false;
+
+function num(id) {
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? 0 : v;
+}
+
+function peso(n) {
+  return 'P' + Math.round(n).toLocaleString();
+}
+
+function recompute() {
+  const monthly = num('f-monthly-fees');
+  const quarterly = num('f-quarterly-annual');
+  const other = num('f-other-fees');
+  const printing = num('f-printing');
+  const sss = num('f-sss');
+  const phic = num('f-phic');
+  const hdmf = num('f-hdmf');
+  const others = num('f-others-permits');
+  const amount = num('f-amount');
+
+  const distributed = monthly + quarterly + other + printing;
+  const contributions = sss + phic + hdmf + others;
+  const tax = Math.round(amount - distributed - contributions);
+
+  document.getElementById('calc-distributed').textContent = peso(distributed);
+  document.getElementById('calc-contributions').textContent = peso(contributions);
+  document.getElementById('calc-tax').textContent = peso(tax);
+
+  const checkEl = document.getElementById('calc-check');
+  if (tax >= 0) {
+    checkEl.textContent = 'OK';
+    checkEl.className = 'check-ok';
+  } else {
+    checkEl.textContent = 'ERROR: fee + contribution lines exceed total collected by ' + peso(Math.abs(tax));
+    checkEl.className = 'check-error';
+  }
+
+  const dateVal = document.getElementById('f-date').value;
+  const clientName = document.getElementById('f-client').value.trim();
+  document.getElementById('calc-label').textContent = (dateVal || '\u2014') + ' - ' + (clientName || 'No Client');
+
+  if (!depositDateTouched) {
+    document.getElementById('f-deposit-date').value = dateVal;
+  }
+}
+
+function updateNewClientVisibility() {
+  const name = document.getElementById('f-client').value.trim().toLowerCase();
+  const match = clients.find(c => c.name.trim().toLowerCase() === name);
+  const box = document.getElementById('new-client-box');
+  if (name && !match) {
+    box.classList.remove('hidden');
+  } else {
+    box.classList.add('hidden');
+  }
+}
+
+[
+  'f-monthly-fees','f-quarterly-annual','f-other-fees','f-printing',
+  'f-sss','f-phic','f-hdmf','f-others-permits','f-amount','f-date','f-client'
+].forEach(id => {
+  document.getElementById(id).addEventListener('input', recompute);
+});
+document.getElementById('f-client').addEventListener('input', updateNewClientVisibility);
+document.getElementById('f-deposit-date').addEventListener('input', () => { depositDateTouched = true; });
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+async function loadDefaults() {
+  try {
+    const collections = await grist.docApi.fetchTable('Daily_cash_collections');
+    const ids = collections.id || [];
+    if (ids.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < ids.length; i++) {
+        if (ids[i] > ids[maxIdx]) maxIdx = i;
+      }
+      const lastEncodedBy = collections.A[maxIdx];
+      const lastOffice = collections.C[maxIdx];
+      const lastMethod = collections.method[maxIdx];
+      const lastDate = collections.B[maxIdx];
+
+      if (lastEncodedBy) document.getElementById('f-encoded-by').value = lastEncodedBy;
+      if (lastMethod) document.getElementById('f-method').value = lastMethod;
+
+      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : (lastOffice || 'Dagupan');
+      document.getElementById('f-office').value = office;
+
+      if (lastDate) {
+        const d = new Date(lastDate * 1000);
+        document.getElementById('f-date').value = d.toISOString().slice(0, 10);
+      } else {
+        document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+      }
+    } else {
+      document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    }
+  } catch (e) {
+    document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  }
+  document.getElementById('f-deposit-date').value = document.getElementById('f-date').value;
+  recompute();
+}
+
+async function loadClients() {
+  try {
+    const table = await grist.docApi.fetchTable('Clients');
+    const ids = table.id || [];
+    clients = ids.map((id, i) => ({
+      id,
+      name: table.A[i] || '',
+      office: table.B[i] || '',
+      handler: table.C[i] || '',
+      tin: table.tin[i] || ''
+    }));
+    const datalist = document.getElementById('client-list');
+    datalist.innerHTML = '';
+    clients.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      datalist.appendChild(opt);
+    });
+  } catch (e) {
+    // non-fatal; autocomplete just won't be populated
+  }
+}
+
+function resetFormAfterSave() {
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-monthly-fees').value = '';
+  document.getElementById('f-quarterly-annual').value = '';
+  document.getElementById('f-other-fees').value = '';
+  document.getElementById('f-printing').value = '';
+  document.getElementById('f-sss').value = '';
+  document.getElementById('f-phic').value = '';
+  document.getElementById('f-hdmf').value = '';
+  document.getElementById('f-others-permits').value = '';
+  document.getElementById('f-handler').value = '';
+  document.getElementById('f-tin').value = '';
+  document.getElementById('f-deposited').checked = false;
+  depositDateTouched = false;
+  updateNewClientVisibility();
+  recompute();
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const date = document.getElementById('f-date').value;
+  const encodedBy = document.getElementById('f-encoded-by').value;
+  const office = document.getElementById('f-office').value;
+  const clientName = document.getElementById('f-client').value.trim();
+  const method = document.getElementById('f-method').value;
+  const amount = num('f-amount');
+
+  if (!date || !encodedBy || !office || !clientName || !method || !amount) {
+    setStatus('Fill in date, encoded by, office, client, method, and amount before saving.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving...', '');
+
+  try {
+    let clientMatch = clients.find(c => c.name.trim().toLowerCase() === clientName.toLowerCase());
+    let clientId;
+
+    if (clientMatch) {
+      clientId = clientMatch.id;
+    } else {
+      const handler = document.getElementById('f-handler').value.trim();
+      const tin = document.getElementById('f-tin').value.trim();
+      const result = await grist.docApi.applyUserActions([
+        ['AddRecord', 'Clients', null, {
+          A: clientName,
+          B: office,
+          C: handler,
+          tin: tin
+        }]
+      ]);
+      clientId = result.retValues[0];
+      clients.push({ id: clientId, name: clientName, office, handler, tin });
+    }
+
+    const depositDate = document.getElementById('f-deposit-date').value;
+    const deposited = document.getElementById('f-deposited').checked;
+
+    await grist.docApi.applyUserActions([
+      ['AddRecord', 'Daily_cash_collections', null, {
+        A: encodedBy,
+        B: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+        C: office,
+        client: clientId,
+        amount: amount,
+        method: method,
+        monthly_fees: num('f-monthly-fees'),
+        quarterly_annual: num('f-quarterly-annual'),
+        other_fees: num('f-other-fees'),
+        printing: num('f-printing'),
+        sss: num('f-sss'),
+        phic: num('f-phic'),
+        hdmf: num('f-hdmf'),
+        others_permits: num('f-others-permits'),
+        deposited: deposited,
+        deposit_date: Math.floor(new Date(depositDate + 'T00:00:00Z').getTime() / 1000)
+      }]
+    ]);
+
+    setStatus('Saved: ' + document.getElementById('calc-label').textContent, 'success');
+    resetFormAfterSave();
+    loadClients();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+grist.ready({ requiredAccess: 'full' });
+loadDefaults();
+loadClients();
+</script>
+</body>
+</html>
