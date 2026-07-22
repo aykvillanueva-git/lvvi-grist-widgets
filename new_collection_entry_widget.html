@@ -513,7 +513,8 @@ async function loadClients() {
     }));
     const datalist = document.getElementById('client-list');
     datalist.innerHTML = '';
-    clients.forEach(c => {
+    const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    sortedClients.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c.name;
       datalist.appendChild(opt);
