@@ -7,6 +7,8 @@
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
   :root {
+    --bg: #fff;
+    --card-bg: #f7f6f2;
     --border: #dfdcd3;
     --muted: #6b6a66;
     --text: #1f1e1c;
@@ -18,13 +20,28 @@
     --success-bg: #eaf3de;
     --radius: 8px;
   }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #26282c;
+      --card-bg: #303338;
+      --border: #45484e;
+      --muted: #9a9da2;
+      --text: #eceef0;
+      --accent: #5b9bd5;
+      --accent-bg: #2b3a4a;
+      --danger: #e88a8a;
+      --danger-bg: #4a2b2b;
+      --success: #93c47d;
+      --success-bg: #2b3f26;
+    }
+  }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     color: var(--text);
     margin: 0;
     padding: 20px;
-    background: #fff;
+    background: var(--bg);
     font-size: 14px;
   }
   h2 {
@@ -61,7 +78,7 @@
     border-radius: var(--radius);
     font-size: 14px;
     color: var(--text);
-    background: #fff;
+    background: var(--bg);
   }
   input:focus, select:focus {
     outline: none;
@@ -80,7 +97,7 @@
     height: 34px;
   }
   .metric {
-    background: #f7f6f2;
+    background: var(--card-bg);
     border-radius: var(--radius);
     padding: 10px 12px;
   }
