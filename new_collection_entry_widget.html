@@ -324,22 +324,6 @@
       <div id="calc-label">&mdash;</div>
     </div>
   </div>
-  <div class="row">
-    <div class="checkbox-row">
-      <input type="checkbox" id="f-deposited">
-      <label style="margin-bottom:0;">Deposited?</label>
-    </div>
-    <div>
-      <label>Deposit date</label>
-      <div class="date-wrap">
-        <input type="text" id="f-deposit-date" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
-        <button type="button" class="date-pick-btn" id="f-deposit-date-pick" tabindex="-1" aria-label="Pick deposit date">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-        </button>
-        <input type="date" id="f-deposit-date-native" class="native-date-hidden" tabindex="-1">
-      </div>
-    </div>
-  </div>
 </section>
 
 <div class="footer-row">
@@ -349,7 +333,6 @@
 
 <script>
 let clients = []; // {id, name, office, handler, tin}
-let depositDateTouched = false;
 
 function num(id) {
   const v = parseFloat(document.getElementById(id).value);
@@ -391,10 +374,6 @@ function recompute() {
   const dateVal = document.getElementById('f-date').value;
   const clientName = document.getElementById('f-client').value.trim();
   document.getElementById('calc-label').textContent = (dateVal || '\u2014') + ' - ' + (clientName || 'No Client');
-
-  if (!depositDateTouched) {
-    document.getElementById('f-deposit-date').value = dateVal;
-  }
 }
 
 function updateNewClientVisibility() {
@@ -415,7 +394,6 @@ function updateNewClientVisibility() {
   document.getElementById(id).addEventListener('input', recompute);
 });
 document.getElementById('f-client').addEventListener('input', updateNewClientVisibility);
-document.getElementById('f-deposit-date').addEventListener('input', () => { depositDateTouched = true; });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -456,7 +434,6 @@ function wireDateField(textId, nativeId, btnId) {
 }
 
 wireDateField('f-date', 'f-date-native', 'f-date-pick');
-wireDateField('f-deposit-date', 'f-deposit-date-native', 'f-deposit-date-pick');
 
 function setStatus(msg, kind) {
   const el = document.getElementById('status-msg');
@@ -496,7 +473,6 @@ async function loadDefaults() {
   } catch (e) {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
   }
-  document.getElementById('f-deposit-date').value = document.getElementById('f-date').value;
   recompute();
 }
 
@@ -537,8 +513,6 @@ function resetFormAfterSave() {
   document.getElementById('f-others-permits').value = '';
   document.getElementById('f-handler').value = '';
   document.getElementById('f-tin').value = '';
-  document.getElementById('f-deposited').checked = false;
-  depositDateTouched = false;
   updateNewClientVisibility();
   recompute();
 }
@@ -555,8 +529,8 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     setStatus('Fill in date, encoded by, office, client, method, and amount before saving.', 'error');
     return;
   }
-  if (!DATE_RE.test(date) || !DATE_RE.test(document.getElementById('f-deposit-date').value)) {
-    setStatus('Dates must be in YYYY-MM-DD format.', 'error');
+  if (!DATE_RE.test(date)) {
+    setStatus('Date must be in YYYY-MM-DD format.', 'error');
     return;
   }
 
@@ -585,9 +559,6 @@ document.getElementById('save-btn').addEventListener('click', async () => {
       clients.push({ id: clientId, name: clientName, office, handler, tin });
     }
 
-    const depositDate = document.getElementById('f-deposit-date').value;
-    const deposited = document.getElementById('f-deposited').checked;
-
     await grist.docApi.applyUserActions([
       ['AddRecord', 'Daily_cash_collections', null, {
         A: encodedBy,
@@ -603,9 +574,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         sss: num('f-sss'),
         phic: num('f-phic'),
         hdmf: num('f-hdmf'),
-        others_permits: num('f-others-permits'),
-        deposited: deposited,
-        deposit_date: Math.floor(new Date(depositDate + 'T00:00:00Z').getTime() / 1000)
+        others_permits: num('f-others-permits')
       }]
     ]);
 
