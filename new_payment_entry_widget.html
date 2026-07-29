@@ -197,20 +197,6 @@
   <h2>Payment</h2>
   <div class="row">
     <div>
-      <label>Category <span class="req">*</span></label>
-      <select id="f-category">
-        <option value="">Select category&hellip;</option>
-        <option value="Deposit/Remit/GCash">Deposit/Remit/GCash</option>
-        <option value="Rent/Utilities/Comm">Rent/Utilities/Comm</option>
-        <option value="Supplies">Supplies</option>
-        <option value="Personal">Personal</option>
-      </select>
-    </div>
-    <div>
-      <label>Amount</label>
-      <input type="number" id="f-amount" step="1" placeholder="0">
-    </div>
-    <div>
       <label>Payment Method <span class="req">*</span></label>
       <select id="f-payment-method">
         <option value="Cash">Cash</option>
@@ -225,7 +211,7 @@
 </section>
 
 <section>
-  <h2>Other charges &amp; allocations</h2>
+  <h2>Charges &amp; allocations</h2>
   <div class="row">
     <div>
       <label>Fare/Gas</label>
@@ -313,6 +299,7 @@
 <script>
 let clients = []; // {id, name, office, handler, tin}
 let methodTouched = false;
+let encodedByTouched = false;
 
 function num(id) {
   const v = parseFloat(document.getElementById(id).value);
@@ -324,7 +311,6 @@ function peso(n) {
 }
 
 function recompute() {
-  const amount = num('f-amount');
   const fareGas = num('f-fare-gas');
   const misc = num('f-misc');
   const contriOthers = num('f-contri-others');
@@ -334,14 +320,13 @@ function recompute() {
   const hdmf = num('f-hdmf');
   const othersAmt = num('f-others-amount');
 
-  const total = amount + fareGas + misc + contriOthers + salary + sss + phic + hdmf + othersAmt;
+  const total = fareGas + misc + contriOthers + salary + sss + phic + hdmf + othersAmt;
   document.getElementById('calc-total').textContent = peso(total);
 
   const dateVal = document.getElementById('f-date').value;
   const desc = document.getElementById('f-description').value.trim();
-  const category = document.getElementById('f-category').value;
   document.getElementById('calc-label').textContent =
-    (dateVal || '\u2014') + ' - ' + (desc || category || 'No description');
+    (dateVal || '\u2014') + ' - ' + (desc || 'No description');
 
   if (!methodTouched) {
     const encodedBy = document.getElementById('f-encoded-by').value;
@@ -365,13 +350,28 @@ function updateClientHint() {
 }
 
 [
-  'f-amount','f-fare-gas','f-misc','f-contri-others','f-salary','f-sss','f-phic',
-  'f-hdmf','f-others-amount','f-date','f-description','f-category','f-encoded-by'
+  'f-fare-gas','f-misc','f-contri-others','f-salary','f-sss','f-phic',
+  'f-hdmf','f-others-amount','f-date','f-description','f-encoded-by'
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', recompute);
 });
 document.getElementById('f-payment-method').addEventListener('change', () => { methodTouched = true; });
 document.getElementById('f-client').addEventListener('input', updateClientHint);
+
+// Gladys is only ever the default encoder for Dagupan; any other office
+// defaults to Ayk. Manually picking an encoder (encodedByTouched) stops
+// this from overriding the user's own choice.
+function defaultEncodedByForOffice(office) {
+  return office === 'Dagupan' ? 'Gladys' : 'Ayk';
+}
+document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
+document.getElementById('f-office').addEventListener('change', () => {
+  if (!encodedByTouched) {
+    document.getElementById('f-encoded-by').value =
+      defaultEncodedByForOffice(document.getElementById('f-office').value);
+  }
+  recompute();
+});
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -454,6 +454,13 @@ async function loadDefaults() {
   } catch (e) {
     document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
   }
+  // Safety net: Gladys is only ever a valid default for Dagupan. If the
+  // inferred office/encoder pairing above somehow lands on Gladys for a
+  // non-Dagupan office, correct it rather than carrying it into the form.
+  if (document.getElementById('f-office').value !== 'Dagupan' &&
+      document.getElementById('f-encoded-by').value === 'Gladys') {
+    document.getElementById('f-encoded-by').value = 'Ayk';
+  }
   recompute();
 }
 
@@ -482,8 +489,6 @@ async function loadClients() {
 }
 
 function resetFormAfterSave() {
-  document.getElementById('f-category').value = '';
-  document.getElementById('f-amount').value = '';
   document.getElementById('f-description').value = '';
   document.getElementById('f-fare-gas').value = '';
   document.getElementById('f-misc').value = '';
@@ -504,26 +509,25 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   const date = document.getElementById('f-date').value;
   const encodedBy = document.getElementById('f-encoded-by').value;
   const office = document.getElementById('f-office').value;
-  const category = document.getElementById('f-category').value;
   const paymentMethod = document.getElementById('f-payment-method').value;
   const othersAmount = num('f-others-amount');
   const othersDesc = document.getElementById('f-others-desc').value;
 
-  if (!date || !encodedBy || !office || !category || !paymentMethod) {
-    setStatus('Fill in date, encoded by, office, category, and payment method before saving.', 'error');
+  if (!date || !encodedBy || !office || !paymentMethod) {
+    setStatus('Fill in date, encoded by, office, and payment method before saving.', 'error');
     return;
   }
   if (!DATE_RE.test(date)) {
     setStatus('Date must be in YYYY-MM-DD format.', 'error');
     return;
   }
-  const total = num('f-amount') + num('f-fare-gas') + num('f-misc') + num('f-contri-others') +
+  const total = num('f-fare-gas') + num('f-misc') + num('f-contri-others') +
     num('f-salary') + num('f-sss') + num('f-phic') + num('f-hdmf') + othersAmount;
   if (total <= 0) {
-    setStatus('Enter at least one amount before saving.', 'error');
+    setStatus('Enter a total amount before saving.', 'error');
     return;
   }
-  if (othersAmount && !othersDesc) {
+  if (othersAmount > 0 && !othersDesc) {
     setStatus('Others Amount is filled in \u2014 pick an Others Description before saving.', 'error');
     return;
   }
@@ -544,9 +548,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
       encoded_by: encodedBy,
       date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
       office: office,
-      category: category,
       description: document.getElementById('f-description').value.trim(),
-      amount: num('f-amount'),
       fare_gas_amount: num('f-fare-gas'),
       meals_amount: num('f-misc'),
       contri_others_amount: num('f-contri-others'),
