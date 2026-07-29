@@ -300,6 +300,8 @@
 let clients = []; // {id, name, office, handler, tin}
 let methodTouched = false;
 let encodedByTouched = false;
+let officeTouched = false;
+let dateTouched = false;
 
 function num(id) {
   const v = parseFloat(document.getElementById(id).value);
@@ -366,12 +368,14 @@ function defaultEncodedByForOffice(office) {
 }
 document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
 document.getElementById('f-office').addEventListener('change', () => {
+  officeTouched = true;
   if (!encodedByTouched) {
     document.getElementById('f-encoded-by').value =
       defaultEncodedByForOffice(document.getElementById('f-office').value);
   }
   recompute();
 });
+document.getElementById('f-date').addEventListener('input', () => { dateTouched = true; });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -433,31 +437,37 @@ async function loadDefaults() {
       const lastMethod = disb.payment_method[maxIdx];
       const lastDate = disb.date[maxIdx];
 
-      if (lastEncodedBy) document.getElementById('f-encoded-by').value = lastEncodedBy;
+      if (lastEncodedBy && !encodedByTouched) document.getElementById('f-encoded-by').value = lastEncodedBy;
 
       const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : (lastOffice || 'Dagupan');
-      document.getElementById('f-office').value = office;
+      if (!officeTouched) document.getElementById('f-office').value = office;
 
-      if (lastMethod) {
+      if (lastMethod && !methodTouched) {
         document.getElementById('f-payment-method').value = lastMethod;
       }
 
-      if (lastDate) {
-        const d = new Date(lastDate * 1000);
-        document.getElementById('f-date').value = d.toISOString().slice(0, 10);
-      } else {
-        document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+      if (!dateTouched) {
+        if (lastDate) {
+          const d = new Date(lastDate * 1000);
+          document.getElementById('f-date').value = d.toISOString().slice(0, 10);
+        } else {
+          document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+        }
       }
-    } else {
+    } else if (!dateTouched) {
       document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
     }
   } catch (e) {
-    document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    if (!dateTouched) {
+      document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    }
   }
   // Safety net: Gladys is only ever a valid default for Dagupan. If the
   // inferred office/encoder pairing above somehow lands on Gladys for a
-  // non-Dagupan office, correct it rather than carrying it into the form.
-  if (document.getElementById('f-office').value !== 'Dagupan' &&
+  // non-Dagupan office, correct it -- but never override an encoder the
+  // user has deliberately picked themselves.
+  if (!encodedByTouched &&
+      document.getElementById('f-office').value !== 'Dagupan' &&
       document.getElementById('f-encoded-by').value === 'Gladys') {
     document.getElementById('f-encoded-by').value = 'Ayk';
   }
