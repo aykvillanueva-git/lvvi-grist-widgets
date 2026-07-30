@@ -449,14 +449,26 @@ async function loadDefaults() {
         if (ids[i] > ids[maxIdx]) maxIdx = i;
       }
       const lastEncodedBy = collections.A[maxIdx];
-      const lastOffice = collections.C[maxIdx];
       const lastMethod = collections.method[maxIdx];
       const lastDate = collections.B[maxIdx];
 
       if (lastEncodedBy) document.getElementById('f-encoded-by').value = lastEncodedBy;
       if (lastMethod) document.getElementById('f-method').value = lastMethod;
 
-      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : (lastOffice || 'Dagupan');
+      // Office defaults to THIS doc's dominant/home office (majority vote
+      // across all collection rows), not just whatever office the single
+      // most recent row happened to carry -- see the matching fix/comment
+      // in new_payment_entry_widget.html for why relying on just the last
+      // row is fragile.
+      const officeCounts = {};
+      for (const o of (collections.C || [])) {
+        if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
+      }
+      let homeOffice = 'Dagupan', homeOfficeCount = -1;
+      for (const [o, c] of Object.entries(officeCounts)) {
+        if (c > homeOfficeCount) { homeOfficeCount = c; homeOffice = o; }
+      }
+      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : homeOffice;
       document.getElementById('f-office').value = office;
 
       if (lastDate) {

@@ -452,13 +452,31 @@ async function loadDefaults() {
         if (ids[i] > ids[maxIdx]) maxIdx = i;
       }
       const lastEncodedBy = disb.encoded_by[maxIdx];
-      const lastOffice = disb.office[maxIdx];
       const lastMethod = disb.payment_method[maxIdx];
       const lastDate = disb.date[maxIdx];
 
       if (lastEncodedBy && !encodedByTouched) document.getElementById('f-encoded-by').value = lastEncodedBy;
 
-      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : (lastOffice || 'Dagupan');
+      // Office defaults to THIS doc's dominant/home office (majority vote
+      // across all disbursement rows), not just whatever office the single
+      // most recent row happened to carry. A handful of rows in each doc
+      // are legitimate cross-office mirrors (e.g. a Dagupan-till purchase
+      // made on a Pozorrubio client's behalf, logged here with
+      // office="Dagupan" for reporting purposes) -- if one of those
+      // happened to be the latest row, blindly copying its office silently
+      // flipped the default for the very next normal entry too, which also
+      // surfaced the Dagupan-only "Poz-supplies" option while working
+      // inside the Pozorrubio doc. Gladys-encoded rows are still always
+      // Dagupan, since she never encodes for Pozorrubio.
+      const officeCounts = {};
+      for (const o of (disb.office || [])) {
+        if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
+      }
+      let homeOffice = 'Dagupan', homeOfficeCount = -1;
+      for (const [o, c] of Object.entries(officeCounts)) {
+        if (c > homeOfficeCount) { homeOfficeCount = c; homeOffice = o; }
+      }
+      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : homeOffice;
       if (!officeTouched) document.getElementById('f-office').value = office;
 
       if (lastMethod && !methodTouched) {
