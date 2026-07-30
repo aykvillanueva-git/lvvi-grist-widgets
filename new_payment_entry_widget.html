@@ -169,6 +169,37 @@
   #status-msg.error { color: var(--danger); }
   #status-msg.success { color: var(--success); }
   datalist { }
+  .hidden { display: none !important; }
+  .section-compact {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  .inline-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .inline-row > label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .inline-row input {
+    flex: 1;
+    min-width: 160px;
+  }
+  .totals-inline h2 {
+    margin: 0;
+  }
+  .totals-inline .metric {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 12px;
+  }
+  .totals-inline .metric label {
+    margin-bottom: 0;
+  }
 </style>
 </head>
 <body>
@@ -275,29 +306,26 @@
   </div>
 </section>
 
-<section>
-  <h2>Client <span class="opt">(optional)</span></h2>
-  <div class="row">
-    <div>
-      <label>Client</label>
-      <input type="text" id="f-client" list="client-list" placeholder="Only if this payment relates to a specific client" autocomplete="off">
-      <datalist id="client-list"></datalist>
-      <div class="hint" id="client-hint"></div>
-    </div>
+<section class="section-compact">
+  <div class="inline-row">
+    <label>Client <span class="opt">(optional)</span></label>
+    <input type="text" id="f-client" list="client-list" placeholder="Only if this payment relates to a specific client" autocomplete="off">
   </div>
+  <datalist id="client-list"></datalist>
+  <div class="hint" id="client-hint"></div>
 </section>
 
-<section>
-  <h2>Totals &amp; status</h2>
-  <div class="row" style="margin-bottom:14px;">
+<section class="section-compact">
+  <div class="inline-row totals-inline">
+    <h2>Totals &amp; status</h2>
     <div class="metric">
-      <label>Total Amount (computed)</label>
+      <label>Total Amount</label>
       <div class="value" id="calc-total">P0</div>
     </div>
-    <div>
-      <label>Entry label (preview)</label>
-      <div id="calc-label">&mdash;</div>
-    </div>
+  </div>
+  <div class="hidden">
+    <label>Entry label (preview)</label>
+    <div id="calc-label">&mdash;</div>
   </div>
 </section>
 
