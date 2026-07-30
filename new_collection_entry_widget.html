@@ -168,6 +168,13 @@
     display: block;
   }
   .hidden { display: none !important; }
+  .section-compact {
+    margin-bottom: 6px;
+    padding-bottom: 0;
+  }
+  .section-compact h2 {
+    margin-bottom: 6px;
+  }
   button#save-btn {
     background: var(--accent);
     color: #fff;
@@ -306,9 +313,9 @@
   </div>
 </section>
 
-<section>
+<section class="section-compact">
   <h2>Totals &amp; status</h2>
-  <div class="row" style="margin-bottom:14px;">
+  <div class="row" style="margin-bottom:4px;">
     <div class="metric">
       <label>Fee distributions total</label>
       <div class="value" id="calc-distributed">P0</div>
@@ -322,7 +329,7 @@
       <div class="value" id="calc-tax">P0</div>
     </div>
   </div>
-  <div class="row hidden" style="margin-bottom:14px;">
+  <div class="row hidden" style="margin-bottom:0;">
     <div>
       <label>Check</label>
       <div id="calc-check" class="check-ok">OK</div>
@@ -334,7 +341,7 @@
   </div>
 </section>
 
-<div class="footer-row">
+<div class="footer-row" style="margin-top:0;">
   <button id="save-btn">Save entry</button>
   <span id="status-msg"></span>
 </div>
