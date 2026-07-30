@@ -251,7 +251,6 @@
       <select id="f-others-desc">
         <option value="">&mdash;</option>
         <option value="Deposit/Remit/GCash">Deposit/Remit/GCash</option>
-        <option value="Personal">Personal</option>
         <option value="Rent">Rent</option>
         <option value="Globe/Comms">Globe/Comms</option>
         <option value="Electric">Electric</option>
@@ -259,7 +258,7 @@
         <option value="LGU etc">LGU etc</option>
         <option value="Asset">Asset</option>
         <option value="CA">CA</option>
-        <option value="Poz-supplies">Poz-supplies</option>
+        <option value="Poz-supplies" data-office-only="Dagupan">Poz-supplies</option>
         <option value="Taxes/Licenses">Taxes/Licenses</option>
       </select>
     </div>
@@ -359,6 +358,24 @@ function updateClientHint() {
   document.getElementById(id).addEventListener('input', recompute);
 });
 document.getElementById('f-payment-method').addEventListener('change', () => { methodTouched = true; });
+
+// Some Others Description options only make sense for one office (e.g.
+// "Poz-supplies" tags a Dagupan-till purchase made on Pozorrubio's behalf --
+// redundant with the plain "Supplies" option once you're actually entering
+// directly into the Pozorrubio office). Hide/disable any option tagged
+// data-office-only when it doesn't match the currently selected office, and
+// clear the field if a now-hidden option was selected.
+function updateOthersDescOptionsForOffice(office) {
+  const sel = document.getElementById('f-others-desc');
+  Array.from(sel.options).forEach(opt => {
+    const restrictedTo = opt.getAttribute('data-office-only');
+    if (!restrictedTo) return;
+    const allowed = restrictedTo === office;
+    opt.hidden = !allowed;
+    opt.disabled = !allowed;
+    if (!allowed && sel.value === opt.value) sel.value = '';
+  });
+}
 document.getElementById('f-client').addEventListener('input', updateClientHint);
 
 // Gladys is only ever the default encoder for Dagupan; any other office
@@ -374,6 +391,7 @@ document.getElementById('f-office').addEventListener('change', () => {
     document.getElementById('f-encoded-by').value =
       defaultEncodedByForOffice(document.getElementById('f-office').value);
   }
+  updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
   recompute();
 });
 document.getElementById('f-date').addEventListener('input', () => { dateTouched = true; });
@@ -472,6 +490,7 @@ async function loadDefaults() {
       document.getElementById('f-encoded-by').value === 'Gladys') {
     document.getElementById('f-encoded-by').value = 'Ayk';
   }
+  updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
   recompute();
 }
 
@@ -586,6 +605,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   }
 });
 
+updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
 grist.ready({ requiredAccess: 'full' });
 loadDefaults();
 loadClients();
