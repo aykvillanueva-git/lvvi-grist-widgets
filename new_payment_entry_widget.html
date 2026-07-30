@@ -535,7 +535,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   const total = num('f-fare-gas') + num('f-misc') + num('f-contri-others') +
     num('f-salary') + num('f-sss') + num('f-phic') + num('f-hdmf') + othersAmount;
   if (total <= 0) {
-    setStatus('Enter a total amount before saving.', 'error');
+    setStatus('Enter at least one charge amount before saving.', 'error');
     return;
   }
   if (othersAmount > 0 && !othersDesc) {
