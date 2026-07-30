@@ -466,8 +466,20 @@ async function loadDefaults() {
       // happened to be the latest row, blindly copying its office silently
       // flipped the default for the very next normal entry too, which also
       // surfaced the Dagupan-only "Poz-supplies" option while working
-      // inside the Pozorrubio doc. Gladys-encoded rows are still always
-      // Dagupan, since she never encodes for Pozorrubio.
+      // inside the Pozorrubio doc.
+      //
+      // IMPORTANT (fixed 2026-07-30): this used to also force office to
+      // "Dagupan" whenever the last row's encoder was Gladys ("she never
+      // encodes for Pozorrubio"). That assumption broke exactly the same
+      // way inside the Pozorrubio doc: a legitimate Gladys-encoded
+      // cross-office row as the most recent row silently overrode the
+      // correct majority-vote homeOffice ("Pozorrubio") back to "Dagupan"
+      // -- and because office ended up "Dagupan", the safety net below
+      // (which only corrects encoded-by when office !== 'Dagupan') never
+      // fired either, so both Office and Encoded-by defaulted wrong at
+      // once inside the Pozorrubio Quick Entry page. Office must come
+      // purely from the doc's own majority vote, never inferred backwards
+      // from who happened to encode the last row.
       const officeCounts = {};
       for (const o of (disb.office || [])) {
         if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
@@ -476,7 +488,7 @@ async function loadDefaults() {
       for (const [o, c] of Object.entries(officeCounts)) {
         if (c > homeOfficeCount) { homeOfficeCount = c; homeOffice = o; }
       }
-      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : homeOffice;
+      const office = homeOffice;
       if (!officeTouched) document.getElementById('f-office').value = office;
 
       if (lastMethod && !methodTouched) {

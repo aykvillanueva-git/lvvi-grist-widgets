@@ -460,6 +460,18 @@ async function loadDefaults() {
       // most recent row happened to carry -- see the matching fix/comment
       // in new_payment_entry_widget.html for why relying on just the last
       // row is fragile.
+      //
+      // IMPORTANT (fixed 2026-07-30): this used to also force office to
+      // "Dagupan" whenever the last row's encoder was Gladys, on the
+      // assumption "Gladys only ever encodes for Dagupan." That assumption
+      // broke inside the Pozorrubio doc itself: a legitimate Gladys-encoded
+      // row can be the most recent row there too (e.g. a cross-office
+      // entry), and when it was, this silently overrode the correct
+      // majority-vote homeOffice ("Pozorrubio") back to "Dagupan" -- which
+      // is exactly what surfaced as both Office and Encoded-by defaulting
+      // wrong inside the Pozorrubio Quick Entry page. Office must be
+      // derived from the doc's own data (majority vote), never inferred
+      // backwards from who happened to encode the last row.
       const officeCounts = {};
       for (const o of (collections.C || [])) {
         if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
@@ -468,8 +480,16 @@ async function loadDefaults() {
       for (const [o, c] of Object.entries(officeCounts)) {
         if (c > homeOfficeCount) { homeOfficeCount = c; homeOffice = o; }
       }
-      const office = lastEncodedBy === 'Gladys' ? 'Dagupan' : homeOffice;
+      const office = homeOffice;
       document.getElementById('f-office').value = office;
+
+      // Safety net: Gladys is only ever a valid default encoder for
+      // Dagupan. If the last row's encoder was Gladys but this doc's home
+      // office isn't Dagupan (a cross-office row happened to be last),
+      // don't leave the Encoded-by default on Gladys.
+      if (office !== 'Dagupan' && document.getElementById('f-encoded-by').value === 'Gladys') {
+        document.getElementById('f-encoded-by').value = 'Ayk';
+      }
 
       if (lastDate) {
         const d = new Date(lastDate * 1000);
