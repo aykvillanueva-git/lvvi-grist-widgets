@@ -169,11 +169,37 @@
   }
   .hidden { display: none !important; }
   .section-compact {
-    margin-bottom: 6px;
-    padding-bottom: 0;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
   }
   .section-compact h2 {
     margin-bottom: 6px;
+  }
+  .inline-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .inline-row > label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .inline-row input {
+    flex: 1;
+    min-width: 160px;
+  }
+  .totals-inline h2 {
+    margin: 0;
+  }
+  .totals-inline .metric {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 12px;
+  }
+  .totals-inline .metric label {
+    margin-bottom: 0;
   }
   button#save-btn {
     background: var(--accent);
@@ -234,15 +260,12 @@
   </div>
 </section>
 
-<section>
-  <h2>Client</h2>
-  <div class="row">
-    <div>
-      <label>Client <span class="req">*</span></label>
-      <input type="text" id="f-client" list="client-list" placeholder="Type a client name" autocomplete="off">
-      <datalist id="client-list"></datalist>
-    </div>
+<section class="section-compact">
+  <div class="inline-row">
+    <label>Client <span class="req">*</span></label>
+    <input type="text" id="f-client" list="client-list" placeholder="Type a client name" autocomplete="off">
   </div>
+  <datalist id="client-list"></datalist>
   <div class="new-client-fields hidden" id="new-client-box">
     <span class="tag">New client &mdash; will be added to Clients</span>
     <div class="row">
@@ -272,6 +295,12 @@
       <label>Amount <span class="req">*</span></label>
       <input type="number" id="f-amount" step="1" placeholder="0">
     </div>
+  </div>
+</section>
+
+<section>
+  <h2>Fees &amp; contributions</h2>
+  <div class="row">
     <div>
       <label>Monthly fees</label>
       <input type="number" id="f-monthly-fees" step="1" placeholder="0">
@@ -288,12 +317,6 @@
       <label>Printing</label>
       <input type="number" id="f-printing" step="1" placeholder="0">
     </div>
-  </div>
-</section>
-
-<section>
-  <h2>Contributions</h2>
-  <div class="row">
     <div>
       <label>SSS</label>
       <input type="number" id="f-sss" step="1" placeholder="0">
@@ -314,8 +337,8 @@
 </section>
 
 <section class="section-compact">
-  <h2>Totals &amp; status</h2>
-  <div class="row" style="margin-bottom:4px;">
+  <div class="inline-row totals-inline">
+    <h2>Totals &amp; status</h2>
     <div class="metric">
       <label>Fee distributions total</label>
       <div class="value" id="calc-distributed">P0</div>
