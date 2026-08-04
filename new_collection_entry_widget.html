@@ -299,10 +299,10 @@
 </section>
 
 <section>
-  <h2>Fees &amp; contributions</h2>
+  <h2>Revenues &amp; contributions</h2>
   <div class="row">
     <div>
-      <label>Monthly fees</label>
+      <label>Monthly revenues</label>
       <input type="number" id="f-monthly-fees" step="1" placeholder="0">
     </div>
     <div>
@@ -310,7 +310,7 @@
       <input type="number" id="f-quarterly-annual" step="1" placeholder="0">
     </div>
     <div>
-      <label>Other fees</label>
+      <label>Other revenues</label>
       <input type="number" id="f-other-fees" step="1" placeholder="0">
     </div>
     <div>
@@ -340,7 +340,7 @@
   <div class="inline-row totals-inline">
     <h2>Totals &amp; status</h2>
     <div class="metric">
-      <label>Fee distributions total</label>
+      <label>Revenue distributions total</label>
       <div class="value" id="calc-distributed">P0</div>
     </div>
     <div class="metric">
@@ -405,7 +405,7 @@ function recompute() {
     checkEl.textContent = 'OK';
     checkEl.className = 'check-ok';
   } else {
-    checkEl.textContent = 'ERROR: fee + contribution lines exceed total collected by ' + peso(Math.abs(tax));
+    checkEl.textContent = 'ERROR: revenue + contribution lines exceed total collected by ' + peso(Math.abs(tax));
     checkEl.className = 'check-error';
   }
 
