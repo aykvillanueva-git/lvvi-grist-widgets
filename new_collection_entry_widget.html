@@ -306,8 +306,12 @@
       <input type="number" id="f-monthly-fees" step="1" placeholder="0">
     </div>
     <div>
-      <label>Quarterly/Annual</label>
-      <input type="number" id="f-quarterly-annual" step="1" placeholder="0">
+      <label>Quarterly Fee</label>
+      <input type="number" id="f-quarterly-fee" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Annual Fee</label>
+      <input type="number" id="f-annual-fee" step="1" placeholder="0">
     </div>
     <div>
       <label>Other revenues</label>
@@ -383,7 +387,8 @@ function peso(n) {
 
 function recompute() {
   const monthly = num('f-monthly-fees');
-  const quarterly = num('f-quarterly-annual');
+  const quarterlyFee = num('f-quarterly-fee');
+  const annualFee = num('f-annual-fee');
   const other = num('f-other-fees');
   const printing = num('f-printing');
   const sss = num('f-sss');
@@ -392,7 +397,7 @@ function recompute() {
   const others = num('f-others-permits');
   const amount = num('f-amount');
 
-  const distributed = monthly + quarterly + other + printing;
+  const distributed = monthly + quarterlyFee + annualFee + other + printing;
   const contributions = sss + phic + hdmf + others;
   const tax = Math.round(amount - distributed - contributions);
 
@@ -426,7 +431,7 @@ function updateNewClientVisibility() {
 }
 
 [
-  'f-monthly-fees','f-quarterly-annual','f-other-fees','f-printing',
+  'f-monthly-fees','f-quarterly-fee','f-annual-fee','f-other-fees','f-printing',
   'f-sss','f-phic','f-hdmf','f-others-permits','f-amount','f-date','f-client'
 ].forEach(id => {
   document.getElementById(id).addEventListener('input', recompute);
@@ -574,7 +579,8 @@ function resetFormAfterSave() {
   document.getElementById('f-client').value = '';
   document.getElementById('f-amount').value = '';
   document.getElementById('f-monthly-fees').value = '';
-  document.getElementById('f-quarterly-annual').value = '';
+  document.getElementById('f-quarterly-fee').value = '';
+  document.getElementById('f-annual-fee').value = '';
   document.getElementById('f-other-fees').value = '';
   document.getElementById('f-printing').value = '';
   document.getElementById('f-sss').value = '';
@@ -638,7 +644,8 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         amount: amount,
         method: method,
         monthly_fees: num('f-monthly-fees'),
-        quarterly_annual: num('f-quarterly-annual'),
+        quarterly_fees: num('f-quarterly-fee'),
+        annual_fees: num('f-annual-fee'),
         other_fees: num('f-other-fees'),
         printing: num('f-printing'),
         sss: num('f-sss'),
