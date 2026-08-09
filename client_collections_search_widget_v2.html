@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Collections — Search &amp; Edit</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg: #fff;
+    --card-bg: #f7f6f2;
+    --border: #dfdcd3;
+    --muted: #6b6a66;
+    --text: #1f1e1c;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --success: #3b6d11;
+    --success-bg: #eaf3de;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #26282c;
+      --card-bg: #303338;
+      --border: #45484e;
+      --muted: #9a9da2;
+      --text: #eceef0;
+      --accent: #5b9bd5;
+      --accent-bg: #2b3a4a;
+      --danger: #e88a8a;
+      --danger-bg: #4a2b2b;
+      --success: #93c47d;
+      --success-bg: #2b3f26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    margin: 0;
+    padding: 18px;
+    background: var(--bg);
+    font-size: 13px;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  h2.page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: normal;
+    margin: 0 0 14px;
+  }
+  section {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-of-type { border-bottom: none; }
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input, select, button {
+    font-family: inherit;
+  }
+  input[type=text], input[type=date], input[type=number], select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .search-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .search-row .grow { flex: 1 1 260px; min-width: 220px; }
+  .search-row input[type=text] { width: 100%; }
+  button {
+    border: none;
+    border-radius: var(--radius);
+    padding: 0 16px;
+    height: 32px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; }
+  button.primary:hover { background: #0c447c; }
+  button.ghost { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+  button.ghost:hover { background: var(--border); }
+  button.danger-btn { background: var(--danger-bg); color: var(--danger); padding: 0 10px; height: 26px; font-size: 12px; }
+  button.danger-btn:hover { background: var(--danger); color: #fff; }
+  button:disabled { opacity: 0.55; cursor: default; }
+
+  .matches-box {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .match-chip {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .match-chip:hover { background: var(--accent); color: #fff; }
+
+  .summary-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px 16px;
+  }
+  .summary-card .item label { margin-bottom: 2px; }
+  .summary-card .item .val { font-size: 14px; font-weight: 600; }
+  .summary-card .item .val.big { font-size: 18px; }
+
+  .filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 62vh;
+    overflow-y: auto;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 1500px;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 2;
+    text-align: left;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th.sorted { color: var(--accent); }
+  thead th .arrow { font-size: 10px; margin-left: 2px; }
+  thead th.sticky-col, tbody td.sticky-col {
+    position: sticky;
+    left: 0;
+    background: var(--bg);
+    z-index: 1;
+    box-shadow: 2px 0 0 var(--border);
+  }
+  thead th.sticky-col { z-index: 3; background: var(--card-bg); }
+  tbody td {
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr:hover td { background: var(--accent-bg); }
+  tbody tr:hover td.sticky-col { background: var(--accent-bg); }
+  tbody td.readonly { color: var(--muted); font-variant-numeric: tabular-nums; }
+  tbody td.num { text-align: right; }
+  tbody td input[type=number], tbody td input[type=date] {
+    width: 92px;
+    height: 28px;
+    padding: 0 6px;
+    font-size: 12.5px;
+  }
+  tbody td input[type=date] { width: 128px; }
+  tbody td select {
+    height: 28px;
+    padding: 0 4px;
+    font-size: 12.5px;
+  }
+  tbody td.cell-error input { border-color: var(--danger); background: var(--danger-bg); }
+  tbody td.cell-saved input, tbody td.cell-saved select { border-color: var(--success); }
+  tfoot td {
+    padding: 8px 6px;
+    font-weight: 700;
+    border-top: 2px solid var(--border);
+    background: var(--card-bg);
+    white-space: nowrap;
+  }
+  tfoot td.num { text-align: right; }
+
+  .empty-state {
+    padding: 30px 10px;
+    text-align: center;
+    color: var(--muted);
+  }
+  #status-msg {
+    font-size: 12.5px;
+    margin-top: 8px;
+    min-height: 16px;
+  }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  .check-ok { color: var(--success); }
+  .check-error { color: var(--danger); font-weight: 600; }
+  .hidden { display: none !important; }
+  .count-badge {
+    display: inline-block;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h2 class="page-title">Client Collections — Search &amp; Edit</h2>
+
+<section>
+  <div class="search-row">
+    <div class="grow">
+      <label>Client name</label>
+      <input type="text" id="f-search" list="client-list" placeholder="Type a client name and press Enter" autocomplete="off">
+      <datalist id="client-list"></datalist>
+    </div>
+    <button class="primary" id="search-btn">Search</button>
+    <button class="ghost" id="clear-btn">Clear</button>
+    <button class="ghost hidden" id="refresh-btn">Refresh</button>
+  </div>
+  <div class="matches-box hidden" id="matches-box"></div>
+  <div id="status-msg"></div>
+</section>
+
+<section id="results-section" class="hidden">
+  <div class="summary-card" id="summary-card"></div>
+
+  <div class="filter-row">
+    <div>
+      <label>From date</label>
+      <input type="date" id="f-from">
+    </div>
+    <div>
+      <label>To date</label>
+      <input type="date" id="f-to">
+    </div>
+    <button class="ghost" id="apply-filter-btn">Apply date filter</button>
+    <button class="ghost" id="clear-filter-btn">Clear dates</button>
+    <span style="flex:1"></span>
+    <span class="count-badge" id="row-count-badge">0 entries</span>
+  </div>
+</section>
+
+<section id="table-section" class="hidden" style="border-bottom:none;">
+  <div class="table-wrap">
+    <table id="results-table">
+      <thead>
+        <tr id="table-head-row"></tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+      <tfoot>
+        <tr id="table-foot-row"></tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+
+<div id="empty-placeholder" class="empty-state">Search for a client above to view their collection history.</div>
+
+<script>
+// ---------------------------------------------------------------------
+// Column definitions for Daily_cash_collections. Order here = column
+// order in the table. "editable" columns render inputs/selects and
+// push edits back to Grist via applyUserActions on change. Read-only
+// columns are derived/formula fields recomputed locally to mirror the
+// Grist formulas, then re-synced on refresh.
+// ---------------------------------------------------------------------
+const COLS = [
+  { key: 'B',                label: 'Date',              type: 'date',   editable: true,  sticky: true },
+  { key: 'A',                label: 'Encoded By',        type: 'choice', editable: true,  choices: ['Gladys','Ayk','Atheena'] },
+  { key: 'method',           label: 'Method',            type: 'choice', editable: true,  choices: ['Cash','Noncash'] },
+  { key: 'amount',           label: 'Amount',            type: 'num',    editable: true },
+  { key: 'monthly_fees',     label: 'Monthly Fee',       type: 'num',    editable: true },
+  { key: 'quarterly_fees',   label: 'Qtrly Fee',         type: 'num',    editable: true },
+  { key: 'annual_fees',      label: 'Annual Fee',        type: 'num',    editable: true },
+  { key: 'other_fees',       label: 'Other Fees',        type: 'num',    editable: true },
+  { key: 'printing',         label: 'Printing',          type: 'num',    editable: true },
+  { key: 'sss',              label: 'SSS',               type: 'num',    editable: true },
+  { key: 'phic',             label: 'PHIC',              type: 'num',    editable: true },
+  { key: 'hdmf',             label: 'HDMF',              type: 'num',    editable: true },
+  { key: 'others_permits',   label: 'Others/Permits',    type: 'num',    editable: true },
+  { key: 'tax_balancing',       label: 'Tax (Balancing)',      type: 'num', editable: false },
+  { key: 'distribution_check',  label: 'Check',                type: 'text', editable: false },
+  { key: '__delete',            label: '',                     type: 'action', editable: false }
+];
+
+const SUM_KEYS = ['amount','monthly_fees','quarterly_fees','annual_fees',
+                   'other_fees','printing','sss','phic','hdmf','others_permits',
+                   'tax_balancing'];
+
+let clients = [];        // {id, name, office, handler, tin, tradename}
+let allCollections = []; // full Daily_cash_collections table, row objects
+let currentClient = null;
+let currentRows = [];    // rows for currentClient, after date filtering
+let sortState = { key: 'B', dir: 'desc' };
+
+function peso(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return 'P' + Math.round(n).toLocaleString();
+}
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg || '';
+  el.className = kind || '';
+}
+function epochToDateStr(epoch) {
+  if (!epoch && epoch !== 0) return '';
+  return new Date(epoch * 1000).toISOString().slice(0, 10);
+}
+function dateStrToEpoch(str) {
+  if (!str) return null;
+  return Math.floor(new Date(str + 'T00:00:00Z').getTime() / 1000);
+}
+
+// ---------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------
+async function loadClients() {
+  const table = await grist.docApi.fetchTable('Clients');
+  const ids = table.id || [];
+  clients = ids.map((id, i) => ({
+    id,
+    name: table.A[i] || '',
+    office: table.B[i] || '',
+    handler: table.C[i] || '',
+    tin: table.tin ? table.tin[i] || '' : '',
+    tradename: table.tradename ? table.tradename[i] || '' : ''
+  }));
+  const datalist = document.getElementById('client-list');
+  datalist.innerHTML = '';
+  [...clients].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      datalist.appendChild(opt);
+    });
+}
+
+async function loadCollections() {
+  const table = await grist.docApi.fetchTable('Daily_cash_collections');
+  const ids = table.id || [];
+  allCollections = ids.map((id, i) => {
+    const row = { id };
+    for (const c of COLS) {
+      if (c.key === '__delete') continue;
+      row[c.key] = table[c.key] ? table[c.key][i] : null;
+    }
+    row.client = table.client ? table.client[i] : null;
+    recomputeDerived(row);
+    return row;
+  });
+}
+
+function recomputeDerived(row) {
+  const n = v => (typeof v === 'number' ? v : 0);
+  const distributed = n(row.monthly_fees) + n(row.quarterly_annual) + n(row.quarterly_fees) +
+                       n(row.annual_fees) + n(row.other_fees) + n(row.printing);
+  const contributions = n(row.sss) + n(row.phic) + n(row.hdmf) + n(row.others_permits);
+  const tax = Math.round(n(row.amount) - distributed - contributions);
+  row.distributed_total = distributed;
+  row.contributions_total = contributions;
+  row.tax_balancing = tax;
+  row.distribution_check = tax >= 0 ? 'OK' : ('ERROR: short by ' + peso(Math.abs(tax)));
+}
+
+// ---------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------
+function findMatches(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const exact = clients.filter(c => c.name.trim().toLowerCase() === q);
+  if (exact.length) return exact;
+  return clients.filter(c => c.name.toLowerCase().includes(q) ||
+                              (c.tradename && c.tradename.toLowerCase().includes(q)));
+}
+
+function doSearch() {
+  const q = document.getElementById('f-search').value;
+  const matchesBox = document.getElementById('matches-box');
+  matchesBox.innerHTML = '';
+  matchesBox.classList.add('hidden');
+
+  if (!q.trim()) {
+    setStatus('Type a client name to search.', 'error');
+    return;
+  }
+  const matches = findMatches(q);
+  if (matches.length === 0) {
+    setStatus('No client found matching "' + q + '".', 'error');
+    showResults(false);
+    return;
+  }
+  if (matches.length === 1) {
+    setStatus('');
+    selectClient(matches[0]);
+    return;
+  }
+  // multiple matches — let the user pick
+  setStatus(matches.length + ' clients match — pick one:', '');
+  matches.sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = 'match-chip';
+    chip.textContent = c.name + (c.office ? ' (' + c.office + ')' : '');
+    chip.addEventListener('click', () => {
+      matchesBox.classList.add('hidden');
+      document.getElementById('f-search').value = c.name;
+      setStatus('');
+      selectClient(c);
+    });
+    matchesBox.appendChild(chip);
+  });
+  matchesBox.classList.remove('hidden');
+  showResults(false);
+}
+
+function selectClient(client) {
+  currentClient = client;
+  document.getElementById('f-search').value = client.name;
+  document.getElementById('refresh-btn').classList.remove('hidden');
+  document.getElementById('f-from').value = '';
+  document.getElementById('f-to').value = '';
+  applyClientFilter();
+  showResults(true);
+}
+
+function applyClientFilter() {
+  if (!currentClient) return;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const fromEpoch = from ? dateStrToEpoch(from) : null;
+  const toEpoch = to ? dateStrToEpoch(to) + 86399 : null;
+
+  currentRows = allCollections.filter(r => r.client === currentClient.id).filter(r => {
+    if (fromEpoch !== null && (r.B === null || r.B < fromEpoch)) return false;
+    if (toEpoch !== null && (r.B === null || r.B > toEpoch)) return false;
+    return true;
+  });
+  renderSummary();
+  renderTable();
+}
+
+function showResults(has) {
+  document.getElementById('results-section').classList.toggle('hidden', !has);
+  document.getElementById('table-section').classList.toggle('hidden', !has);
+  document.getElementById('empty-placeholder').classList.toggle('hidden', has);
+}
+
+// ---------------------------------------------------------------------
+// Summary card
+// ---------------------------------------------------------------------
+function renderSummary() {
+  const allForClient = allCollections.filter(r => r.client === currentClient.id);
+  const totalAll = allForClient.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalFiltered = currentRows.reduce((s, r) => s + (r.amount || 0), 0);
+
+  const card = document.getElementById('summary-card');
+  card.innerHTML = '';
+  const items = [
+    ['Client', currentClient.name],
+    ['Office', currentClient.office || '—'],
+    ['Handler', currentClient.handler || '—'],
+    ['TIN', currentClient.tin || '—'],
+    ['All-time entries', String(allForClient.length)],
+    ['All-time collected', peso(totalAll)],
+    ['Shown entries', String(currentRows.length)],
+    ['Shown total', peso(totalFiltered)]
+  ];
+  items.forEach(([label, val], i) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    const big = label === 'All-time collected' || label === 'Shown total';
+    div.innerHTML = '<label>' + label + '</label><div class="val' + (big ? ' big' : '') + '">' + val + '</div>';
+    card.appendChild(div);
+  });
+}
+
+// ---------------------------------------------------------------------
+// Table rendering
+// ---------------------------------------------------------------------
+function sortRows(rows) {
+  const { key, dir } = sortState;
+  const sorted = [...rows].sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (av === null || av === undefined) av = dir === 'asc' ? Infinity : -Infinity;
+    if (bv === null || bv === undefined) bv = dir === 'asc' ? Infinity : -Infinity;
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function renderTableHead() {
+  const headRow = document.getElementById('table-head-row');
+  headRow.innerHTML = '';
+  COLS.forEach(c => {
+    const th = document.createElement('th');
+    if (c.sticky) th.classList.add('sticky-col');
+    if (c.key === sortState.key) th.classList.add('sorted');
+    if (c.key === '__delete') {
+      th.textContent = '';
+    } else {
+      th.textContent = c.label;
+      if (c.key === sortState.key) {
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        arrow.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+        th.appendChild(arrow);
+      }
+      th.addEventListener('click', () => {
+        if (sortState.key === c.key) {
+          sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState = { key: c.key, dir: c.type === 'date' ? 'desc' : 'asc' };
+        }
+        renderTable();
+      });
+    }
+    headRow.appendChild(th);
+  });
+}
+
+function renderTable() {
+  renderTableHead();
+  const body = document.getElementById('table-body');
+  body.innerHTML = '';
+  const rows = sortRows(currentRows);
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.dataset.rowId = row.id;
+    COLS.forEach(c => {
+      const td = document.createElement('td');
+      if (c.sticky) td.classList.add('sticky-col');
+
+      if (c.key === '__delete') {
+        const btn = document.createElement('button');
+        btn.className = 'danger-btn';
+        btn.textContent = 'Delete';
+        btn.addEventListener('click', () => deleteRow(row));
+        td.appendChild(btn);
+        tr.appendChild(td);
+        return;
+      }
+
+      if (!c.editable) {
+        td.classList.add('readonly');
+        if (c.type === 'num') {
+          td.classList.add('num');
+          td.textContent = peso(row[c.key]);
+        } else {
+          td.textContent = row[c.key] || '';
+          if (c.key === 'distribution_check') {
+            td.classList.add(row.tax_balancing >= 0 ? 'check-ok' : 'check-error');
+          }
+        }
+        tr.appendChild(td);
+        return;
+      }
+
+      // editable cell
+      if (c.type === 'date') {
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = epochToDateStr(row[c.key]);
+        input.addEventListener('change', () => saveField(row, c.key, td, dateStrToEpoch(input.value)));
+        td.appendChild(input);
+      } else if (c.type === 'choice') {
+        const select = document.createElement('select');
+        const opts = [...c.choices];
+        if (row[c.key] && !opts.includes(row[c.key])) opts.push(row[c.key]);
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o;
+          opt.textContent = o;
+          if (o === row[c.key]) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.addEventListener('change', () => saveField(row, c.key, td, select.value));
+        td.appendChild(select);
+      } else if (c.type === 'num') {
+        td.classList.add('num');
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '1';
+        input.value = (row[c.key] === null || row[c.key] === undefined) ? '' : row[c.key];
+        input.addEventListener('change', () => {
+          const raw = input.value.trim();
+          const val = raw === '' ? null : parseFloat(raw);
+          saveField(row, c.key, td, val);
+        });
+        td.appendChild(input);
+      }
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+
+  renderFoot(rows);
+  document.getElementById('row-count-badge').textContent = rows.length + ' entr' + (rows.length === 1 ? 'y' : 'ies');
+}
+
+function renderFoot(rows) {
+  const foot = document.getElementById('table-foot-row');
+  foot.innerHTML = '';
+  const sums = {};
+  SUM_KEYS.forEach(k => { sums[k] = rows.reduce((s, r) => s + (r[k] || 0), 0); });
+
+  COLS.forEach(c => {
+    const td = document.createElement('td');
+    if (c.sticky) td.classList.add('sticky-col');
+    if (c.key === 'B') {
+      td.textContent = 'Totals';
+    } else if (SUM_KEYS.includes(c.key)) {
+      td.classList.add('num');
+      td.textContent = peso(sums[c.key]);
+    } else {
+      td.textContent = '';
+    }
+    foot.appendChild(td);
+  });
+}
+
+// ---------------------------------------------------------------------
+// Saving edits
+// ---------------------------------------------------------------------
+async function saveField(row, key, cellEl, value) {
+  const prevValue = row[key];
+  row[key] = value;
+  recomputeDerived(row);
+  cellEl.classList.remove('cell-error', 'cell-saved');
+  setStatus('Saving...', '');
+  try {
+    await grist.docApi.applyUserActions([
+      ['UpdateRecord', 'Daily_cash_collections', row.id, { [key]: value }]
+    ]);
+    cellEl.classList.add('cell-saved');
+    setStatus('Saved.', 'success');
+    // refresh derived-column display + totals without a full reload
+    renderTable();
+    setTimeout(() => setStatus(''), 2000);
+  } catch (e) {
+    row[key] = prevValue;
+    recomputeDerived(row);
+    cellEl.classList.add('cell-error');
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+    renderTable();
+  }
+}
+
+async function deleteRow(row) {
+  const dateStr = epochToDateStr(row.B);
+  if (!confirm('Delete the ' + peso(row.amount) + ' entry dated ' + dateStr + ' for ' + currentClient.name + '? This cannot be undone.')) {
+    return;
+  }
+  setStatus('Deleting...', '');
+  try {
+    await grist.docApi.applyUserActions([
+      ['RemoveRecord', 'Daily_cash_collections', row.id]
+    ]);
+    allCollections = allCollections.filter(r => r.id !== row.id);
+    applyClientFilter();
+    setStatus('Entry deleted.', 'success');
+    setTimeout(() => setStatus(''), 2000);
+  } catch (e) {
+    setStatus('Could not delete: ' + (e && e.message ? e.message : e), 'error');
+  }
+}
+
+// ---------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------
+document.getElementById('search-btn').addEventListener('click', doSearch);
+document.getElementById('f-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('f-search').value = '';
+  document.getElementById('matches-box').classList.add('hidden');
+  document.getElementById('refresh-btn').classList.add('hidden');
+  currentClient = null;
+  currentRows = [];
+  setStatus('');
+  showResults(false);
+});
+document.getElementById('apply-filter-btn').addEventListener('click', applyClientFilter);
+document.getElementById('clear-filter-btn').addEventListener('click', () => {
+  document.getElementById('f-from').value = '';
+  document.getElementById('f-to').value = '';
+  applyClientFilter();
+});
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+  setStatus('Refreshing...', '');
+  await loadCollections();
+  if (currentClient) applyClientFilter();
+  setStatus('Refreshed.', 'success');
+  setTimeout(() => setStatus(''), 1500);
+});
+
+async function init() {
+  try {
+    await Promise.all([loadClients(), loadCollections()]);
+  } catch (e) {
+    setStatus('Could not load data: ' + (e && e.message ? e.message : e), 'error');
+  }
+}
+
+grist.ready({ requiredAccess: 'full' });
+init();
+</script>
+</body>
+</html>
