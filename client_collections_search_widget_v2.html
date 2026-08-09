@@ -40,9 +40,9 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     color: var(--text);
     margin: 0;
-    padding: 18px;
+    padding: 10px 12px;
     background: var(--bg);
-    font-size: 13px;
+    font-size: 12.5px;
   }
   h2 {
     font-size: 15px;
@@ -53,34 +53,34 @@
     letter-spacing: 0.04em;
   }
   h2.page-title {
-    font-size: 22px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text);
     text-transform: none;
     letter-spacing: normal;
-    margin: 0 0 14px;
+    margin: 0 0 8px;
   }
   section {
-    margin-bottom: 16px;
-    padding-bottom: 14px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--border);
   }
   section:last-of-type { border-bottom: none; }
   label {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
   input, select, button {
     font-family: inherit;
   }
   input[type=text], input[type=date], input[type=number], select {
-    height: 32px;
-    padding: 0 8px;
+    height: 26px;
+    padding: 0 7px;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 13px;
+    border-radius: 6px;
+    font-size: 12.5px;
     color: var(--text);
     background: var(--bg);
   }
@@ -92,17 +92,17 @@
   .search-row {
     display: flex;
     align-items: flex-end;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
   }
-  .search-row .grow { flex: 1 1 260px; min-width: 220px; }
+  .search-row .grow { flex: 1 1 220px; min-width: 180px; }
   .search-row input[type=text] { width: 100%; }
   button {
     border: none;
-    border-radius: var(--radius);
-    padding: 0 16px;
-    height: 32px;
-    font-size: 13px;
+    border-radius: 6px;
+    padding: 0 12px;
+    height: 26px;
+    font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
   }
@@ -110,58 +110,64 @@
   button.primary:hover { background: #0c447c; }
   button.ghost { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
   button.ghost:hover { background: var(--border); }
-  button.danger-btn { background: var(--danger-bg); color: var(--danger); padding: 0 10px; height: 26px; font-size: 12px; }
+  button.danger-btn { background: var(--danger-bg); color: var(--danger); padding: 0 8px; height: 22px; font-size: 11px; }
   button.danger-btn:hover { background: var(--danger); color: #fff; }
   button:disabled { opacity: 0.55; cursor: default; }
 
   .matches-box {
-    margin-top: 10px;
+    margin-top: 6px;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
   }
   .match-chip {
     background: var(--accent-bg);
     color: var(--accent);
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 12.5px;
+    padding: 3px 10px;
+    font-size: 11.5px;
     cursor: pointer;
   }
   .match-chip:hover { background: var(--accent); color: #fff; }
 
   .summary-card {
     background: var(--card-bg);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px 16px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 0;
+    font-size: 12px;
   }
-  .summary-card .item label { margin-bottom: 2px; }
-  .summary-card .item .val { font-size: 14px; font-weight: 600; }
-  .summary-card .item .val.big { font-size: 18px; }
+  .summary-card .sep {
+    color: var(--border);
+    margin: 0 8px;
+  }
+  .summary-card .k { color: var(--muted); margin-right: 3px; }
+  .summary-card .v { font-weight: 600; }
+  .summary-card .v.big { color: var(--accent); }
 
   .filter-row {
     display: flex;
     align-items: flex-end;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
-    margin-top: 12px;
+    margin-top: 6px;
   }
 
   .table-wrap {
     overflow-x: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    max-height: 62vh;
+    max-height: 74vh;
     overflow-y: auto;
   }
   table {
     border-collapse: collapse;
     width: 100%;
-    min-width: 1500px;
+    min-width: 1050px;
   }
   thead th {
     position: sticky;
@@ -169,11 +175,11 @@
     background: var(--card-bg);
     z-index: 2;
     text-align: left;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    padding: 8px 6px;
+    padding: 5px 4px;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
     cursor: pointer;
@@ -191,31 +197,32 @@
   }
   thead th.sticky-col { z-index: 3; background: var(--card-bg); }
   tbody td {
-    padding: 4px 6px;
+    padding: 2px 4px;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
   tbody tr:hover td { background: var(--accent-bg); }
   tbody tr:hover td.sticky-col { background: var(--accent-bg); }
-  tbody td.readonly { color: var(--muted); font-variant-numeric: tabular-nums; }
+  tbody td.readonly { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
   tbody td.num { text-align: right; }
   tbody td input[type=number], tbody td input[type=date] {
-    width: 92px;
-    height: 28px;
-    padding: 0 6px;
-    font-size: 12.5px;
+    width: 68px;
+    height: 24px;
+    padding: 0 5px;
+    font-size: 11.5px;
   }
-  tbody td input[type=date] { width: 128px; }
+  tbody td input[type=date] { width: 102px; }
   tbody td select {
-    height: 28px;
-    padding: 0 4px;
-    font-size: 12.5px;
+    height: 24px;
+    padding: 0 2px;
+    font-size: 11.5px;
   }
   tbody td.cell-error input { border-color: var(--danger); background: var(--danger-bg); }
   tbody td.cell-saved input, tbody td.cell-saved select { border-color: var(--success); }
   tfoot td {
-    padding: 8px 6px;
+    padding: 5px 4px;
     font-weight: 700;
+    font-size: 12px;
     border-top: 2px solid var(--border);
     background: var(--card-bg);
     white-space: nowrap;
@@ -501,24 +508,17 @@ function renderSummary() {
   const totalFiltered = currentRows.reduce((s, r) => s + (r.amount || 0), 0);
 
   const card = document.getElementById('summary-card');
-  card.innerHTML = '';
   const items = [
-    ['Client', currentClient.name],
-    ['Office', currentClient.office || '—'],
-    ['Handler', currentClient.handler || '—'],
-    ['TIN', currentClient.tin || '—'],
-    ['All-time entries', String(allForClient.length)],
-    ['All-time collected', peso(totalAll)],
-    ['Shown entries', String(currentRows.length)],
-    ['Shown total', peso(totalFiltered)]
+    ['Client', currentClient.name, false],
+    ['Office', currentClient.office || '—', false],
+    ['Handler', currentClient.handler || '—', false],
+    ['TIN', currentClient.tin || '—', false],
+    ['All-time', allForClient.length + ' entries · ' + peso(totalAll), true],
+    ['Shown', currentRows.length + ' entries · ' + peso(totalFiltered), true]
   ];
-  items.forEach(([label, val], i) => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    const big = label === 'All-time collected' || label === 'Shown total';
-    div.innerHTML = '<label>' + label + '</label><div class="val' + (big ? ' big' : '') + '">' + val + '</div>';
-    card.appendChild(div);
-  });
+  card.innerHTML = items.map(([label, val, big]) =>
+    '<span><span class="k">' + label + '</span><span class="v' + (big ? ' big' : '') + '">' + val + '</span></span>'
+  ).join('<span class="sep">|</span>');
 }
 
 // ---------------------------------------------------------------------
