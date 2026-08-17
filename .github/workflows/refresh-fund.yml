@@ -2,6 +2,8 @@ name: Refresh LVVI Fund Balance
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "*/10 * * * *"
 
 jobs:
   refresh:
