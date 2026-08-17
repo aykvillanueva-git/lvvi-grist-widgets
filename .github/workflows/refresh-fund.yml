@@ -1,0 +1,21 @@
+name: Refresh LVVI Fund Balance
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run fund refresh
+        env:
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+        run: python3 scripts/fund_refresh.py
