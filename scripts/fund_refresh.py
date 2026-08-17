@@ -51,18 +51,13 @@ def _req(method, url, body=None, params=None):
 
 
 def list_all(doc_id, table_id):
-    out = []
-    limit = 500
-    offset = 0
-    while True:
-        url = f"{BASE}/{doc_id}/tables/{table_id}/records"
-        data = _req("GET", url, params={"limit": limit, "offset": offset})
-        recs = data["records"]
-        out.extend(recs)
-        if len(recs) < limit:
-            break
-        offset += limit
-    return out
+    # Grist's REST API supports `limit` but NOT `offset` on GET /records --
+    # there is no offset-based pagination. Use one call with a limit comfortably
+    # above any realistic table size instead of looping (a loop here would never
+    # terminate, since every "page" would just re-return the same first rows).
+    url = f"{BASE}/{doc_id}/tables/{table_id}/records"
+    data = _req("GET", url, params={"limit": 20000})
+    return data["records"]
 
 
 def add_records(doc_id, table_id, field_dicts):
