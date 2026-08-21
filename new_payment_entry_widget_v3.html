@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Payment Entry</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg: #fff;
+    --card-bg: #f7f6f2;
+    --border: #dfdcd3;
+    --muted: #6b6a66;
+    --text: #1f1e1c;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --success: #3b6d11;
+    --success-bg: #eaf3de;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #26282c;
+      --card-bg: #303338;
+      --border: #45484e;
+      --muted: #9a9da2;
+      --text: #eceef0;
+      --accent: #5b9bd5;
+      --accent-bg: #2b3a4a;
+      --danger: #e88a8a;
+      --danger-bg: #4a2b2b;
+      --success: #93c47d;
+      --success-bg: #2b3f26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    background: var(--bg);
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  h2.entry-emphasis {
+    font-size: 30px;
+    font-weight: 700;
+    margin: 0 0 14px;
+  }
+  h2.section-highlight {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  section {
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-of-type { border-bottom: none; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px 16px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  label .req { color: var(--danger); }
+  label .opt { font-style: italic; }
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  input, select {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .date-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .date-wrap input[type="text"] {
+    padding-right: 34px;
+    font-variant-numeric: tabular-nums;
+  }
+  .date-wrap input.invalid {
+    border-color: var(--danger);
+  }
+  .date-pick-btn {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .date-pick-btn:hover { background: var(--card-bg); color: var(--text); }
+  .native-date-hidden {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    right: 4px;
+    top: 4px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .metric {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .metric label { margin-bottom: 2px; }
+  .metric .value { font-size: 18px; font-weight: 600; }
+  button#save-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+  button#save-btn:hover:not(:disabled) { background: #0c447c; }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  #status-msg {
+    font-size: 13px;
+  }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  datalist { }
+  .hidden { display: none !important; }
+  .section-compact {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  .inline-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .inline-row > label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .inline-row input {
+    flex: 1;
+    min-width: 160px;
+  }
+  .totals-inline h2 {
+    margin: 0;
+  }
+  .totals-inline .metric {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 12px;
+  }
+  .totals-inline .metric label {
+    margin-bottom: 0;
+  }
+</style>
+</head>
+<body>
+
+<section>
+  <h2 class="entry-emphasis">Payments</h2>
+  <div class="row">
+    <div>
+      <label>Date <span class="req">*</span></label>
+      <div class="date-wrap">
+        <input type="text" id="f-date" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
+        <button type="button" class="date-pick-btn" id="f-date-pick" tabindex="-1" aria-label="Pick date">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </button>
+        <input type="date" id="f-date-native" class="native-date-hidden" tabindex="-1">
+      </div>
+    </div>
+    <div>
+      <label>Encoded by <span class="req">*</span></label>
+      <select id="f-encoded-by">
+        <option value="Gladys">Gladys</option>
+        <option value="Ayk">Ayk</option>
+        <option value="Atheena">Atheena</option>
+      </select>
+    </div>
+    <div>
+      <label>Office <span class="req">*</span></label>
+      <select id="f-office">
+        <option value="Dagupan">Dagupan</option>
+        <option value="Pozorrubio">Pozorrubio</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="row">
+    <div>
+      <label>Payment Method <span class="req">*</span></label>
+      <select id="f-payment-method">
+        <option value="Cash">Cash</option>
+        <option value="Noncash">Noncash</option>
+      </select>
+    </div>
+    <div style="grid-column: span 2;">
+      <label>Description</label>
+      <input type="text" id="f-description" placeholder="What this payment is for">
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Charges &amp; allocations</h2>
+  <div class="row">
+    <div>
+      <label>Fare/Gas</label>
+      <input type="number" id="f-fare-gas" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Misc</label>
+      <input type="number" id="f-misc" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Client's Expenses</label>
+      <input type="number" id="f-contri-others" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Salary</label>
+      <input type="number" id="f-salary" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>SSS</label>
+      <input type="number" id="f-sss" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>PHIC</label>
+      <input type="number" id="f-phic" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>HDMF</label>
+      <input type="number" id="f-hdmf" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Others Amount</label>
+      <input type="number" id="f-others-amount" step="1" placeholder="0">
+    </div>
+    <div>
+      <label>Others Description</label>
+      <select id="f-others-desc">
+        <option value="">&mdash;</option>
+        <option value="Deposit/Remit/GCash">Deposit/Remit/GCash</option>
+        <option value="Rent">Rent</option>
+        <option value="Globe/Comms">Globe/Comms</option>
+        <option value="Electric">Electric</option>
+        <option value="Supplies">Supplies</option>
+        <option value="LGU etc">LGU etc</option>
+        <option value="Asset">Asset</option>
+        <option value="CA">CA</option>
+        <option value="Poz-supplies" data-office-only="Dagupan">Poz-supplies</option>
+        <option value="Taxes/Licenses">Taxes/Licenses</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<section class="section-compact">
+  <div class="inline-row">
+    <label>Client <span class="opt">(optional)</span></label>
+    <input type="text" id="f-client" list="client-list" placeholder="Only if this payment relates to a specific client" autocomplete="off">
+  </div>
+  <datalist id="client-list"></datalist>
+  <div class="hint" id="client-hint"></div>
+</section>
+
+<section class="section-compact">
+  <div class="inline-row totals-inline">
+    <h2>Totals &amp; status</h2>
+    <div class="metric">
+      <label>Total Amount</label>
+      <div class="value" id="calc-total">P0</div>
+    </div>
+  </div>
+  <div class="hidden">
+    <label>Entry label (preview)</label>
+    <div id="calc-label">&mdash;</div>
+  </div>
+</section>
+
+<div class="footer-row">
+  <button id="save-btn">Save entry</button>
+  <span id="status-msg"></span>
+</div>
+
+<script>
+let clients = []; // {id, name, office, handler, tin}
+let methodTouched = false;
+let encodedByTouched = false;
+let officeTouched = false;
+let dateTouched = false;
+
+function num(id) {
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? 0 : v;
+}
+
+function peso(n) {
+  return 'P' + Math.round(n).toLocaleString();
+}
+
+function recompute() {
+  const fareGas = num('f-fare-gas');
+  const misc = num('f-misc');
+  const contriOthers = num('f-contri-others');
+  const salary = num('f-salary');
+  const sss = num('f-sss');
+  const phic = num('f-phic');
+  const hdmf = num('f-hdmf');
+  const othersAmt = num('f-others-amount');
+
+  const total = fareGas + misc + contriOthers + salary + sss + phic + hdmf + othersAmt;
+  document.getElementById('calc-total').textContent = peso(total);
+
+  const dateVal = document.getElementById('f-date').value;
+  const desc = document.getElementById('f-description').value.trim();
+  document.getElementById('calc-label').textContent =
+    (dateVal || '\u2014') + ' - ' + (desc || 'No description');
+
+  if (!methodTouched) {
+    const encodedBy = document.getElementById('f-encoded-by').value;
+    const methodSelect = document.getElementById('f-payment-method');
+    if (encodedBy === 'Gladys') {
+      methodSelect.value = 'Cash';
+    } else if (salary || sss || phic || hdmf) {
+      methodSelect.value = 'Noncash';
+    } else {
+      methodSelect.value = 'Cash';
+    }
+  }
+}
+
+function updateClientHint() {
+  const name = document.getElementById('f-client').value.trim().toLowerCase();
+  const hint = document.getElementById('client-hint');
+  if (!name) { hint.textContent = ''; return; }
+  const match = clients.find(c => c.name.trim().toLowerCase() === name);
+  hint.textContent = match ? '' : 'No matching client found \u2014 will be saved without a client link.';
+}
+
+[
+  'f-fare-gas','f-misc','f-contri-others','f-salary','f-sss','f-phic',
+  'f-hdmf','f-others-amount','f-date','f-description','f-encoded-by'
+].forEach(id => {
+  document.getElementById(id).addEventListener('input', recompute);
+});
+document.getElementById('f-payment-method').addEventListener('change', () => { methodTouched = true; });
+
+// Some Others Description options only make sense for one office (e.g.
+// "Poz-supplies" tags a Dagupan-till purchase made on Pozorrubio's behalf --
+// redundant with the plain "Supplies" option once you're actually entering
+// directly into the Pozorrubio office). Hide/disable any option tagged
+// data-office-only when it doesn't match the currently selected office, and
+// clear the field if a now-hidden option was selected.
+function updateOthersDescOptionsForOffice(office) {
+  const sel = document.getElementById('f-others-desc');
+  Array.from(sel.options).forEach(opt => {
+    const restrictedTo = opt.getAttribute('data-office-only');
+    if (!restrictedTo) return;
+    const allowed = restrictedTo === office;
+    opt.hidden = !allowed;
+    opt.disabled = !allowed;
+    if (!allowed && sel.value === opt.value) sel.value = '';
+  });
+}
+document.getElementById('f-client').addEventListener('input', updateClientHint);
+
+// Gladys is only ever the default encoder for Dagupan; any other office
+// defaults to Ayk. Manually picking an encoder (encodedByTouched) stops
+// this from overriding the user's own choice.
+function defaultEncodedByForOffice(office) {
+  return office === 'Dagupan' ? 'Gladys' : 'Ayk';
+}
+document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
+document.getElementById('f-office').addEventListener('change', () => {
+  officeTouched = true;
+  if (!encodedByTouched) {
+    document.getElementById('f-encoded-by').value =
+      defaultEncodedByForOffice(document.getElementById('f-office').value);
+  }
+  updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
+  recompute();
+});
+document.getElementById('f-date').addEventListener('input', () => { dateTouched = true; });
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function wireDateField(textId, nativeId, btnId) {
+  const textEl = document.getElementById(textId);
+  const nativeEl = document.getElementById(nativeId);
+  const btnEl = document.getElementById(btnId);
+
+  btnEl.addEventListener('click', () => {
+    if (DATE_RE.test(textEl.value)) nativeEl.value = textEl.value;
+    if (nativeEl.showPicker) {
+      nativeEl.showPicker();
+    } else {
+      nativeEl.focus();
+      nativeEl.click();
+    }
+  });
+
+  nativeEl.addEventListener('input', () => {
+    if (nativeEl.value) {
+      textEl.value = nativeEl.value;
+      textEl.classList.remove('invalid');
+      textEl.dispatchEvent(new Event('input'));
+    }
+  });
+
+  textEl.addEventListener('blur', () => {
+    if (textEl.value && !DATE_RE.test(textEl.value)) {
+      textEl.classList.add('invalid');
+    } else {
+      textEl.classList.remove('invalid');
+    }
+  });
+
+  textEl.addEventListener('input', () => {
+    textEl.classList.remove('invalid');
+  });
+}
+
+wireDateField('f-date', 'f-date-native', 'f-date-pick');
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+async function loadDefaults() {
+  try {
+    const disb = await grist.docApi.fetchTable('Cash_disbursements');
+    const ids = disb.id || [];
+    if (ids.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < ids.length; i++) {
+        if (ids[i] > ids[maxIdx]) maxIdx = i;
+      }
+      const lastEncodedBy = disb.encoded_by[maxIdx];
+      const lastMethod = disb.payment_method[maxIdx];
+      const lastDate = disb.date[maxIdx];
+
+      if (lastEncodedBy && !encodedByTouched) document.getElementById('f-encoded-by').value = lastEncodedBy;
+
+      // Office defaults to THIS doc's dominant/home office (majority vote
+      // across all disbursement rows), not just whatever office the single
+      // most recent row happened to carry. A handful of rows in each doc
+      // are legitimate cross-office mirrors (e.g. a Dagupan-till purchase
+      // made on a Pozorrubio client's behalf, logged here with
+      // office="Dagupan" for reporting purposes) -- if one of those
+      // happened to be the latest row, blindly copying its office silently
+      // flipped the default for the very next normal entry too, which also
+      // surfaced the Dagupan-only "Poz-supplies" option while working
+      // inside the Pozorrubio doc.
+      //
+      // IMPORTANT (fixed 2026-07-30): this used to also force office to
+      // "Dagupan" whenever the last row's encoder was Gladys ("she never
+      // encodes for Pozorrubio"). That assumption broke exactly the same
+      // way inside the Pozorrubio doc: a legitimate Gladys-encoded
+      // cross-office row as the most recent row silently overrode the
+      // correct majority-vote homeOffice ("Pozorrubio") back to "Dagupan"
+      // -- and because office ended up "Dagupan", the safety net below
+      // (which only corrects encoded-by when office !== 'Dagupan') never
+      // fired either, so both Office and Encoded-by defaulted wrong at
+      // once inside the Pozorrubio Quick Entry page. Office must come
+      // purely from the doc's own majority vote, never inferred backwards
+      // from who happened to encode the last row.
+      const officeCounts = {};
+      for (const o of (disb.office || [])) {
+        if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
+      }
+      let homeOffice = 'Dagupan', homeOfficeCount = -1;
+      for (const [o, c] of Object.entries(officeCounts)) {
+        if (c > homeOfficeCount) { homeOfficeCount = c; homeOffice = o; }
+      }
+      const office = homeOffice;
+      if (!officeTouched) document.getElementById('f-office').value = office;
+
+      if (lastMethod && !methodTouched) {
+        document.getElementById('f-payment-method').value = lastMethod;
+      }
+
+      if (!dateTouched) {
+        if (lastDate) {
+          const d = new Date(lastDate * 1000);
+          document.getElementById('f-date').value = d.toISOString().slice(0, 10);
+        } else {
+          document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+        }
+      }
+    } else if (!dateTouched) {
+      document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    }
+  } catch (e) {
+    if (!dateTouched) {
+      document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    }
+  }
+  // Safety net: Gladys is only ever a valid default for Dagupan. If the
+  // inferred office/encoder pairing above somehow lands on Gladys for a
+  // non-Dagupan office, correct it -- but never override an encoder the
+  // user has deliberately picked themselves.
+  if (!encodedByTouched &&
+      document.getElementById('f-office').value !== 'Dagupan' &&
+      document.getElementById('f-encoded-by').value === 'Gladys') {
+    document.getElementById('f-encoded-by').value = 'Ayk';
+  }
+  updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
+  recompute();
+}
+
+async function loadClients() {
+  try {
+    const table = await grist.docApi.fetchTable('Clients');
+    const ids = table.id || [];
+    clients = ids.map((id, i) => ({
+      id,
+      name: table.A[i] || '',
+      office: table.B[i] || '',
+      handler: table.C[i] || '',
+      tin: table.tin[i] || ''
+    }));
+    const datalist = document.getElementById('client-list');
+    datalist.innerHTML = '';
+    const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    sortedClients.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      datalist.appendChild(opt);
+    });
+  } catch (e) {
+    // non-fatal; autocomplete just won't be populated
+  }
+}
+
+function resetFormAfterSave() {
+  document.getElementById('f-description').value = '';
+  document.getElementById('f-fare-gas').value = '';
+  document.getElementById('f-misc').value = '';
+  document.getElementById('f-contri-others').value = '';
+  document.getElementById('f-salary').value = '';
+  document.getElementById('f-sss').value = '';
+  document.getElementById('f-phic').value = '';
+  document.getElementById('f-hdmf').value = '';
+  document.getElementById('f-others-amount').value = '';
+  document.getElementById('f-others-desc').value = '';
+  document.getElementById('f-client').value = '';
+  methodTouched = false;
+  updateClientHint();
+  recompute();
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const date = document.getElementById('f-date').value;
+  const encodedBy = document.getElementById('f-encoded-by').value;
+  const office = document.getElementById('f-office').value;
+  const paymentMethod = document.getElementById('f-payment-method').value;
+  const othersAmount = num('f-others-amount');
+  const othersDesc = document.getElementById('f-others-desc').value;
+
+  if (!date || !encodedBy || !office || !paymentMethod) {
+    setStatus('Fill in date, encoded by, office, and payment method before saving.', 'error');
+    return;
+  }
+  if (!DATE_RE.test(date)) {
+    setStatus('Date must be in YYYY-MM-DD format.', 'error');
+    return;
+  }
+  const total = num('f-fare-gas') + num('f-misc') + num('f-contri-others') +
+    num('f-salary') + num('f-sss') + num('f-phic') + num('f-hdmf') + othersAmount;
+  if (total <= 0) {
+    setStatus('Enter at least one charge amount before saving.', 'error');
+    return;
+  }
+  if (othersAmount > 0 && !othersDesc) {
+    setStatus('Others Amount is filled in \u2014 pick an Others Description before saving.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving...', '');
+
+  try {
+    const clientName = document.getElementById('f-client').value.trim();
+    let clientId = null;
+    if (clientName) {
+      const clientMatch = clients.find(c => c.name.trim().toLowerCase() === clientName.toLowerCase());
+      if (clientMatch) clientId = clientMatch.id;
+    }
+
+    const payload = {
+      encoded_by: encodedBy,
+      date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+      office: office,
+      description: document.getElementById('f-description').value.trim(),
+      fare_gas_amount: num('f-fare-gas'),
+      meals_amount: num('f-misc'),
+      contri_others_amount: num('f-contri-others'),
+      salary_benefits_amount: num('f-salary'),
+      sss_employer_amount: num('f-sss'),
+      phic_employer_amount: num('f-phic'),
+      hdmf_employer_amount: num('f-hdmf'),
+      others_amount2: othersAmount,
+      others_description: othersDesc,
+      payment_method: paymentMethod
+    };
+    if (clientId) payload.client = clientId;
+
+    await grist.docApi.applyUserActions([
+      ['AddRecord', 'Cash_disbursements', null, payload]
+    ]);
+
+    setStatus('Saved: ' + document.getElementById('calc-label').textContent, 'success');
+    resetFormAfterSave();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
+grist.ready({ requiredAccess: 'full' });
+loadDefaults();
+loadClients();
+</script>
+</body>
+</html>
