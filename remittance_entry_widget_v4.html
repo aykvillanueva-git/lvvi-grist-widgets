@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LVVI Tax Remittances</title>
+<title>LVVI Remittances</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
   :root{
@@ -218,20 +218,29 @@
     display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px;
     background:var(--pill-bg); color:var(--navy-soft); font-weight:600;
   }
-  .form-pill{
-    display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px;
-    background:var(--pill-bg); color:var(--navy-soft); font-weight:600; font-family:var(--mono);
-  }
   .results-scroll{max-height:360px; overflow-y:auto; border:1px solid var(--line); border-radius:6px;}
   .empty{padding:20px; text-align:center; color:var(--ink-soft); font-size:13px;}
   .badge-live{background:var(--ok-bg); color:var(--success-text);}
   .badge-hist{background:var(--chip-bg); color:var(--ink-soft);}
+  .fund-refresh-bar{
+    display:flex; align-items:center; gap:10px;
+    margin: -4px 0 16px 0;
+    padding:8px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--hover-bg);
+  }
+  .fund-refresh-status{font-size:12px; color:var(--ink-soft);}
 </style>
 </head>
 <body>
 
-  <h1>Tax Remittances</h1>
-  <p class="subtitle">LVVI Taxes — add, search, and correct BIR tax remittance entries</p>
+  <h1>Contribution Remittances</h1>
+  <p class="subtitle">LVVI Contributions — add, search, and correct SSS / PHIC / HDMF remittance entries</p>
+  <div class="fund-refresh-bar">
+    <span class="fund-refresh-status">🔄 Fund balance syncs automatically every ~10 minutes — no action needed.</span>
+  </div>
+
 
   <div class="card">
     <div class="card-title">
@@ -240,12 +249,8 @@
     </div>
     <div class="grid">
       <div class="field">
-        <label for="f-date-paid">Date Paid</label>
-        <input type="date" id="f-date-paid">
-      </div>
-      <div class="field">
-        <label for="f-date-transfer">UB Fund Transfer Date</label>
-        <input type="date" id="f-date-transfer">
+        <label for="f-date">Date</label>
+        <input type="date" id="f-date">
       </div>
       <div class="field">
         <label for="f-office">Office</label>
@@ -260,17 +265,37 @@
         <div class="client-menu" id="client-menu" style="display:none;"></div>
       </div>
       <div class="field">
-        <label for="f-form">BIR Form</label>
-        <input type="text" id="f-form" list="form-list" placeholder="e.g. 1701q, 2550q…" autocomplete="off">
-        <datalist id="form-list"></datalist>
+        <label for="f-type">Type</label>
+        <select id="f-type">
+          <option value="Blended/Unspecified">Blended / Unspecified</option>
+          <option value="SSS">SSS</option>
+          <option value="PHIC">PHIC</option>
+          <option value="HDMF">HDMF</option>
+        </select>
       </div>
       <div class="field">
-        <label for="f-amount">Tax Payment Amount</label>
+        <label for="f-amount">Amount</label>
         <input type="number" id="f-amount" step="0.01" min="0" placeholder="0.00">
       </div>
       <div class="field">
-        <label for="f-return-period">Return Period</label>
-        <input type="date" id="f-return-period">
+        <label for="f-payment">Payment method</label>
+        <select id="f-payment">
+          <option value="Cash">Cash</option>
+          <option value="Noncash">Noncash</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-encoder">Encoded by</label>
+        <select id="f-encoder">
+          <option value="Gladys">Gladys</option>
+          <option value="Atheena">Atheena</option>
+          <option value="Ayk">Ayk</option>
+          <option value="Other">Other…</option>
+        </select>
+      </div>
+      <div class="field" id="f-encoder-other-wrap" style="display:none;">
+        <label for="f-encoder-other">Encoder name</label>
+        <input type="text" id="f-encoder-other" placeholder="Name">
       </div>
     </div>
     <div class="actions">
@@ -296,17 +321,21 @@
         </select>
       </div>
       <div class="field small">
-        <label for="s-form">BIR Form</label>
-        <select id="s-form">
+        <label for="s-type">Type</label>
+        <select id="s-type">
           <option value="">All</option>
+          <option value="SSS">SSS</option>
+          <option value="PHIC">PHIC</option>
+          <option value="HDMF">HDMF</option>
+          <option value="Blended/Unspecified">Blended</option>
         </select>
       </div>
       <div class="field small">
-        <label for="s-from">Paid from</label>
+        <label for="s-from">From</label>
         <input type="date" id="s-from">
       </div>
       <div class="field small">
-        <label for="s-to">Paid to</label>
+        <label for="s-to">To</label>
         <input type="date" id="s-to">
       </div>
       <div class="field small">
@@ -328,13 +357,13 @@
       <table>
         <thead>
           <tr>
-            <th>Date Paid</th>
-            <th>UB Transfer</th>
+            <th>Date</th>
             <th>Office</th>
             <th>Client</th>
-            <th>BIR Form</th>
+            <th>Type</th>
             <th class="amount">Amount</th>
-            <th>Return Period</th>
+            <th>Payment</th>
+            <th>Encoded by</th>
             <th>Source</th>
             <th></th>
           </tr>
@@ -348,7 +377,7 @@
 (function(){
   'use strict';
 
-  var TABLE = 'Tax_Remittances';
+  var TABLE = 'Contribution_Remittances';
   var CLIENTS = 'Clients';
 
   var state = {
@@ -358,8 +387,7 @@
     editingId: null,
     selectedClientId: null,
     menuIndex: -1,
-    filteredMenu: [],
-    knownForms: []
+    filteredMenu: []
   };
 
   grist.ready({requiredAccess: 'full'});
@@ -391,44 +419,22 @@
       for (var i=0;i<n;i++){
         rows.push({
           id: data.id[i],
-          date_paid: data.date_paid[i],
-          date_transfer: data.date_transfer[i],
+          date: data.date[i],
           office: data.office[i],
           client: data.client[i] || 0,
           client_code_raw: data.client_code_raw[i] || '',
-          form: data.form[i] || '',
           amount: data.amount[i] || 0,
-          return_period: data.return_period[i],
-          source: data.source[i] || ''
+          contribution_type: data.contribution_type[i] || 'Blended/Unspecified',
+          payment_method: data.payment_method[i] || 'Cash',
+          encoded_by: data.encoded_by[i] || '',
+          source: data.source[i] || '',
+          pushed_to_office_book: data.pushed_to_office_book[i]
         });
       }
-      rows.sort(function(a,b){ return (b.date_paid||0) - (a.date_paid||0); });
+      rows.sort(function(a,b){ return (b.date||0) - (a.date||0); });
       state.remittances = rows;
-      refreshFormOptions();
       renderResults();
     });
-  }
-
-  // ---------- known-form options (datalist + filter dropdown), built live from data ----------
-  function refreshFormOptions(){
-    var seen = {};
-    var forms = [];
-    state.remittances.forEach(function(r){
-      var f = (r.form || '').trim();
-      if (f && !seen[f.toLowerCase()]){ seen[f.toLowerCase()] = true; forms.push(f); }
-    });
-    forms.sort(function(a,b){ return a.toLowerCase().localeCompare(b.toLowerCase()); });
-    state.knownForms = forms;
-
-    var datalist = document.getElementById('form-list');
-    datalist.innerHTML = forms.map(function(f){ return '<option value="'+escapeHtml(f)+'">'; }).join('');
-
-    var sel = document.getElementById('s-form');
-    var current = sel.value;
-    sel.innerHTML = '<option value="">All</option>' + forms.map(function(f){
-      return '<option value="'+escapeHtml(f)+'">'+escapeHtml(f)+'</option>';
-    }).join('');
-    if (forms.indexOf(current) !== -1) sel.value = current;
   }
 
   // ---------- date helpers ----------
@@ -538,6 +544,20 @@
     return 0;
   }
 
+  // ---------- encoder "other" toggle ----------
+  var encoderSel = document.getElementById('f-encoder');
+  var encoderOtherWrap = document.getElementById('f-encoder-other-wrap');
+  encoderSel.addEventListener('change', function(){
+    encoderOtherWrap.style.display = (encoderSel.value === 'Other') ? '' : 'none';
+  });
+
+  function getEncoderValue(){
+    if (encoderSel.value === 'Other'){
+      return document.getElementById('f-encoder-other').value.trim();
+    }
+    return encoderSel.value;
+  }
+
   // ---------- form message ----------
   var formMsgEl = document.getElementById('form-msg');
   function showFormMsg(text, isErr){
@@ -548,14 +568,16 @@
 
   // ---------- form reset / populate ----------
   function resetForm(){
-    document.getElementById('f-date-paid').value = new Date().toISOString().slice(0,10);
-    document.getElementById('f-date-transfer').value = '';
+    document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
     document.getElementById('f-office').value = 'Dagupan';
     clientInput.value = '';
     state.selectedClientId = null;
-    document.getElementById('f-form').value = '';
+    document.getElementById('f-type').value = 'Blended/Unspecified';
     document.getElementById('f-amount').value = '';
-    document.getElementById('f-return-period').value = '';
+    document.getElementById('f-payment').value = 'Cash';
+    encoderSel.value = 'Gladys';
+    encoderOtherWrap.style.display = 'none';
+    document.getElementById('f-encoder-other').value = '';
     state.editingId = null;
     document.getElementById('form-title').textContent = 'New remittance';
     document.getElementById('btn-save').textContent = 'Save remittance';
@@ -568,8 +590,7 @@
 
   function populateFormForEdit(row){
     state.editingId = row.id;
-    document.getElementById('f-date-paid').value = tsToInputDate(row.date_paid);
-    document.getElementById('f-date-transfer').value = tsToInputDate(row.date_transfer);
+    document.getElementById('f-date').value = tsToInputDate(row.date);
     document.getElementById('f-office').value = row.office || 'Dagupan';
     if (row.client && state.clientById[row.client]){
       var c = state.clientById[row.client];
@@ -579,9 +600,18 @@
       state.selectedClientId = null;
       clientInput.value = row.client_code_raw || '';
     }
-    document.getElementById('f-form').value = row.form || '';
+    document.getElementById('f-type').value = row.contribution_type || 'Blended/Unspecified';
     document.getElementById('f-amount').value = row.amount || '';
-    document.getElementById('f-return-period').value = tsToInputDate(row.return_period);
+    document.getElementById('f-payment').value = row.payment_method || 'Cash';
+    var knownEncoders = ['Gladys','Atheena','Ayk'];
+    if (knownEncoders.indexOf(row.encoded_by) !== -1){
+      encoderSel.value = row.encoded_by;
+      encoderOtherWrap.style.display = 'none';
+    } else {
+      encoderSel.value = 'Other';
+      encoderOtherWrap.style.display = '';
+      document.getElementById('f-encoder-other').value = row.encoded_by || '';
+    }
     document.getElementById('form-title').textContent = 'Editing remittance #' + row.id;
     document.getElementById('btn-save').textContent = 'Update remittance';
     document.getElementById('btn-cancel').style.display = '';
@@ -605,18 +635,18 @@
 
   // ---------- save / update ----------
   document.getElementById('btn-save').addEventListener('click', function(){
-    var datePaidVal = document.getElementById('f-date-paid').value;
-    var dateTransferVal = document.getElementById('f-date-transfer').value;
+    var dateVal = document.getElementById('f-date').value;
     var office = document.getElementById('f-office').value;
-    var formVal = document.getElementById('f-form').value.trim();
     var amountVal = parseFloat(document.getElementById('f-amount').value);
-    var returnPeriodVal = document.getElementById('f-return-period').value;
+    var type = document.getElementById('f-type').value;
+    var payment = document.getElementById('f-payment').value;
+    var encoder = getEncoderValue();
     var clientText = clientInput.value.trim();
 
-    if (!datePaidVal){ showFormMsg('Date Paid is required.', true); return; }
+    if (!dateVal){ showFormMsg('Date is required.', true); return; }
     if (!clientText){ showFormMsg('Enter a client or a code.', true); return; }
-    if (!formVal){ showFormMsg('Enter a BIR form.', true); return; }
     if (isNaN(amountVal) || amountVal <= 0){ showFormMsg('Enter a valid amount.', true); return; }
+    if (!encoder){ showFormMsg('Encoder name is required.', true); return; }
 
     var resolvedClientId = resolveClientId(clientText);
     var clientRawCode = resolvedClientId
@@ -624,14 +654,14 @@
       : clientText;
 
     var fields = {
-      date_paid: inputDateToTs(datePaidVal),
-      date_transfer: dateTransferVal ? inputDateToTs(dateTransferVal) : null,
+      date: inputDateToTs(dateVal),
       office: office,
       client: resolvedClientId,
       client_code_raw: clientRawCode,
-      form: formVal,
       amount: amountVal,
-      return_period: returnPeriodVal ? inputDateToTs(returnPeriodVal) : null
+      contribution_type: type,
+      payment_method: payment,
+      encoded_by: encoder
     };
 
     var btn = document.getElementById('btn-save');
@@ -642,6 +672,7 @@
       action = ['UpdateRecord', TABLE, state.editingId, fields];
     } else {
       fields.source = 'Live entry';
+      fields.pushed_to_office_book = false;
       action = ['AddRecord', TABLE, null, fields];
     }
 
@@ -658,14 +689,14 @@
   });
 
   // ---------- search / filter ----------
-  var searchEls = ['s-text','s-office','s-form','s-from','s-to','s-unmatched']
+  var searchEls = ['s-text','s-office','s-type','s-from','s-to','s-unmatched']
     .map(function(id){ return document.getElementById(id); });
   searchEls.forEach(function(el){ el.addEventListener('input', renderResults); el.addEventListener('change', renderResults); });
 
   function renderResults(){
     var q = document.getElementById('s-text').value.trim().toLowerCase();
     var officeF = document.getElementById('s-office').value;
-    var formF = document.getElementById('s-form').value;
+    var typeF = document.getElementById('s-type').value;
     var fromV = document.getElementById('s-from').value;
     var toV = document.getElementById('s-to').value;
     var unmatchedF = document.getElementById('s-unmatched').value;
@@ -674,9 +705,9 @@
 
     var rows = state.remittances.filter(function(r){
       if (officeF && r.office !== officeF) return false;
-      if (formF && r.form !== formF) return false;
-      if (fromTs != null && r.date_paid < fromTs) return false;
-      if (toTs != null && r.date_paid > toTs) return false;
+      if (typeF && r.contribution_type !== typeF) return false;
+      if (fromTs != null && r.date < fromTs) return false;
+      if (toTs != null && r.date > toTs) return false;
       if (unmatchedF === 'unmatched' && r.client) return false;
       if (q){
         var c = state.clientById[r.client];
@@ -712,13 +743,13 @@
       ? '<span class="pill badge-live">live</span>'
       : '<span class="pill badge-hist">migrated</span>';
     return '<tr class="' + (r.client ? '' : 'unmatched') + '">' +
-      '<td>' + fmtDate(r.date_paid) + '</td>' +
-      '<td>' + fmtDate(r.date_transfer) + '</td>' +
+      '<td>' + fmtDate(r.date) + '</td>' +
       '<td>' + escapeHtml(r.office||'') + '</td>' +
       '<td>' + clientLabel + '</td>' +
-      '<td><span class="form-pill">' + escapeHtml(r.form||'—') + '</span></td>' +
+      '<td>' + escapeHtml(r.contribution_type||'') + '</td>' +
       '<td class="amount">' + fmtAmount(r.amount) + '</td>' +
-      '<td>' + fmtDate(r.return_period) + '</td>' +
+      '<td>' + escapeHtml(r.payment_method||'') + '</td>' +
+      '<td>' + escapeHtml(r.encoded_by||'') + '</td>' +
       '<td>' + sourceBadge + '</td>' +
       '<td><button class="rowbtn" data-id="'+r.id+'">Edit</button></td>' +
       '</tr>';
