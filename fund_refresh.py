@@ -2,38 +2,24 @@
 """
 LVVI Fund Refresh
 ------------------
-Keeps Cash_Fund_Injections (Dagupan doc) in sync with Tax_Remittances (LVVI Taxes doc)
-and Contribution_Remittances (LVVI Contributions doc), and ALSO feeds the fund-level
-monitor (Fund_Remittance_Payments / Fund_Accountability, Dagupan doc).
+Keeps Fund_Remittance_Payments (Dagupan doc) in sync with Tax_Remittances (LVVI Taxes
+doc) and Contribution_Remittances (LVVI Contributions doc).
+
+As of 2026-08-23, Tax and Contributions remittances are paid out of ONE combined fund
+("Tax & Contributions Fund" in Fund_Accountability), so this script no longer needs to
+route amounts to separate fund buckets -- it just mirrors live remittance payments into
+the single shared payments-out ledger, tagged with a Type for readability.
 
 Logic:
-  - Only rows tagged source == "Live entry" represent remittances encoded live,
-    going forward, that should draw down the Fund. These get a matching negative
-    ("debit") row inserted into Cash_Fund_Injections -- this feeds Gladys_Accountability,
-    which nets ALL Cash_Fund_Injections activity (any purpose) against her cash-on-hand,
-    so this part covers every contribution type (SSS/PHIC/HDMF/Blended), not just PHIC.
+  - Only rows tagged source == "Live entry" represent remittances encoded live, going
+    forward, that should draw down the combined Fund. These get a mirrored row inserted
+    into Fund_Remittance_Payments (Dagupan doc), which Fund_Accountability's
+    payments_out formula sums (no fund/type filtering -- there's only one fund now).
   - All other pending rows (historical batch-imported / migrated data that predates
-    the Fund ledger) are simply flagged posted_to_fund = True with NO debit, so they
-    are never reprocessed and never distort the running balance.
-  - NEW: live-entry rows also get a mirrored POSITIVE row in Fund_Remittance_Payments,
-    so Fund_Accountability's payments_out (and therefore Net Fund Balance) updates
-    automatically instead of Ayk re-entering the same total by hand from the
-    Liquidation report:
-      * Every live Tax_Remittances row -> Fund_Remittance_Payments, fund="UB Tax Fund"
-      * Every live Contribution_Remittances row (SSS, PHIC, HDMF, or Blended/Unspecified
-        alike) -> Fund_Remittance_Payments, fund="Contributions Fund (SSS/PHIC/HDMF)".
-        Confirmed 2026-08-22 by Ayk: unlike the UB Tax side, SSS/PHIC/HDMF remittances
-        are NOT funded from separately itemized pools (there's no dedicated SSS/HDMF
-        tab in the Liquidation workbook the way PHIC 2026 has one) -- they draw from
-        the same general Fund the daily reports' "FUND (in)" column already feeds, and
-        going forward will simply be listed here by batch as Contribution_Remittances
-        entries come in. So this fund is NOT PHIC-only; it covers all contribution
-        types together, with a single shared opening balance/net balance.
+    the Fund ledger) are simply flagged posted_to_fund = True with NO mirrored payment,
+    so they are never reprocessed and never distort the running balance.
   - Idempotent: only rows where posted_to_fund is not yet true are touched, so this
-    is safe to run repeatedly (e.g. every time the widget button triggers it). Both
-    the Cash_Fund_Injections debit and the Fund_Remittance_Payments mirror (when
-    applicable) are keyed off the same posted_to_fund flag on the source row, so a
-    source row is never processed twice.
+    is safe to run repeatedly (currently scheduled hourly).
 
 Requires env var GRIST_API_KEY (a Grist personal API key, injected as a GitHub
 Actions secret -- never written to disk or logged).
@@ -98,79 +84,52 @@ def update_records(doc_id, table_id, id_field_pairs):
         _req("PATCH", url, body={"records": [{"id": rid, "fields": f} for rid, f in chunk]})
 
 
-def process_table(doc_id, table_id, purpose_label, date_field, desc_fn, fund_fn):
-    """
-    fund_fn(fields) -> fund name ("UB Tax Fund" / "PHIC Fund") or None if this
-    row is out of scope for the Fund_Remittance_Payments mirror.
-    """
+def process_table(doc_id, table_id, type_label, date_field, desc_fn):
     rows = list_all(doc_id, table_id)
     pending = [r for r in rows if not r["fields"].get("posted_to_fund")]
 
-    fund_inserts = []       # negative debits -> Cash_Fund_Injections (Gladys_Accountability)
-    remittance_inserts = []  # positive mirror -> Fund_Remittance_Payments (Fund_Accountability)
-    debit_ids = []
+    payment_inserts = []
+    paid_ids = []
     grandfather_ids = []
 
     for r in pending:
         f = r["fields"]
         if f.get("source") == "Live entry":
             amount = f.get("amount") or 0
-            office = f.get("office") or "Dagupan"
-            date_val = f.get(date_field)
-            desc = desc_fn(f, r["id"])
-
-            fund_inserts.append({
+            payment_inserts.append({
+                "date": f.get(date_field),
+                "fund": type_label,
+                "description": desc_fn(f, r["id"]),
+                "amount": amount,
                 "encoded_by": "Ayk",
-                "date": date_val,
-                "office": office,
-                "purpose": purpose_label,
-                "description": desc,
-                "amount": -amount,
             })
-
-            fund_name = fund_fn(f)
-            if fund_name:
-                remittance_inserts.append({
-                    "date": date_val,
-                    "fund": fund_name,
-                    "description": desc,
-                    "amount": amount,
-                    "encoded_by": "Ayk",
-                })
-
-            debit_ids.append(r["id"])
+            paid_ids.append(r["id"])
         else:
             grandfather_ids.append(r["id"])
 
-    add_records(DAGUPAN_DOC, "Cash_Fund_Injections", fund_inserts)
-    add_records(DAGUPAN_DOC, "Fund_Remittance_Payments", remittance_inserts)
+    add_records(DAGUPAN_DOC, "Fund_Remittance_Payments", payment_inserts)
 
-    all_mark = [(rid, {"posted_to_fund": True}) for rid in (debit_ids + grandfather_ids)]
+    all_mark = [(rid, {"posted_to_fund": True}) for rid in (paid_ids + grandfather_ids)]
     update_records(doc_id, table_id, all_mark)
 
-    return len(debit_ids), len(remittance_inserts), len(grandfather_ids)
+    return len(paid_ids), len(grandfather_ids)
 
 
 def main():
-    tax_debits, tax_fund_rows, tax_grandfathered = process_table(
-        TAX_DOC, "Tax_Remittances", "Tax Remittance", "date_paid",
+    tax_paid, tax_grandfathered = process_table(
+        TAX_DOC, "Tax_Remittances", "Tax", "date_paid",
         lambda f, rid: f"{f.get('client_code_raw', '')} / {f.get('form', '')} (TaxRem#{rid})",
-        lambda f: "UB Tax Fund",  # every live tax remittance is in scope
     )
-    contrib_debits, contrib_fund_rows, contrib_grandfathered = process_table(
-        CONTRIB_DOC, "Contribution_Remittances", "Contribution Remittance (SSS/PHIC/HDMF)", "date",
+    contrib_paid, contrib_grandfathered = process_table(
+        CONTRIB_DOC, "Contribution_Remittances", "Contributions (SSS/PHIC/HDMF)", "date",
         lambda f, rid: f"{f.get('client_code_raw', '')} / {f.get('contribution_type', '')} (ContribRem#{rid})",
-        lambda f: "Contributions Fund (SSS/PHIC/HDMF)",  # all types share one fund -- see note above
     )
 
-    print(f"Tax_Remittances: {tax_debits} posted as new Fund debits "
-          f"({tax_fund_rows} mirrored to Fund_Remittance_Payments), "
-          f"{tax_grandfathered} historical rows flagged (no debit).")
-    print(f"Contribution_Remittances: {contrib_debits} posted as new Fund debits "
-          f"({contrib_fund_rows} mirrored to Fund_Remittance_Payments, all contribution types), "
-          f"{contrib_grandfathered} historical rows flagged (no debit).")
-    print(f"Total new Fund debit rows this run: {tax_debits + contrib_debits}")
-    print(f"Total new Fund_Remittance_Payments rows this run: {tax_fund_rows + contrib_fund_rows}")
+    print(f"Tax_Remittances: {tax_paid} posted as new Fund payments, "
+          f"{tax_grandfathered} historical rows flagged (no payment).")
+    print(f"Contribution_Remittances: {contrib_paid} posted as new Fund payments, "
+          f"{contrib_grandfathered} historical rows flagged (no payment).")
+    print(f"Total new Fund payment rows this run: {tax_paid + contrib_paid}")
 
 
 if __name__ == "__main__":
