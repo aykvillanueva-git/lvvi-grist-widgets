@@ -2,18 +2,21 @@
 """
 LVVI Fund Refresh
 ------------------
-Keeps Cash_Fund_Injections (Dagupan doc) in sync with Tax_Remittances (LVVI Taxes doc)
-and Contribution_Remittances (LVVI Contributions doc).
+Keeps Fund_Remittance_Payments (Dagupan doc) in sync with Tax_Remittances (LVVI
+Taxes doc) and Contribution_Remittances (LVVI Contributions doc).
 
 Logic:
   - Only rows tagged source == "Live entry" represent remittances encoded live,
-    going forward, that should draw down the Fund. These get a matching negative
-    ("debit") row inserted into Cash_Fund_Injections.
+    going forward, that should draw down the Fund. These get a matching positive
+    row inserted into Fund_Remittance_Payments -- an outflow log that
+    Fund_Accountability's payments_out formula sums by `fund` (Choice values
+    "Tax" / "Contributions (SSS/PHIC/HDMF)"), so amounts here are positive
+    (payments_out is subtracted from opening + funding_in in net_balance).
   - All other pending rows (historical batch-imported / migrated data that predates
-    the Fund ledger) are simply flagged posted_to_fund = True with NO debit, so they
-    are never reprocessed and never distort the running balance.
+    the Fund ledger) are simply flagged posted_to_fund = True with NO payment row,
+    so they are never reprocessed and never distort the running balance.
   - Idempotent: only rows where posted_to_fund is not yet true are touched, so this
-    is safe to run repeatedly (e.g. every time the widget button triggers it).
+    is safe to run repeatedly (e.g. on every scheduled run or firm-wide refresh).
 
 Requires env var GRIST_API_KEY (a Grist personal API key, injected as a GitHub
 Actions secret -- never written to disk or logged).
@@ -78,7 +81,7 @@ def update_records(doc_id, table_id, id_field_pairs):
         _req("PATCH", url, body={"records": [{"id": rid, "fields": f} for rid, f in chunk]})
 
 
-def process_table(doc_id, table_id, purpose_label, date_field, desc_fn):
+def process_table(doc_id, table_id, fund_label, date_field, desc_fn):
     rows = list_all(doc_id, table_id)
     pending = [r for r in rows if not r["fields"].get("posted_to_fund")]
 
@@ -90,20 +93,18 @@ def process_table(doc_id, table_id, purpose_label, date_field, desc_fn):
         f = r["fields"]
         if f.get("source") == "Live entry":
             amount = f.get("amount") or 0
-            office = f.get("office") or "Dagupan"
             fund_inserts.append({
-                "encoded_by": "Ayk",
                 "date": f.get(date_field),
-                "office": office,
-                "purpose": purpose_label,
+                "fund": fund_label,
                 "description": desc_fn(f, r["id"]),
-                "amount": -amount,
+                "amount": amount,
+                "encoded_by": "Ayk",
             })
             debit_ids.append(r["id"])
         else:
             grandfather_ids.append(r["id"])
 
-    add_records(DAGUPAN_DOC, "Cash_Fund_Injections", fund_inserts)
+    add_records(DAGUPAN_DOC, "Fund_Remittance_Payments", fund_inserts)
 
     all_mark = [(rid, {"posted_to_fund": True}) for rid in (debit_ids + grandfather_ids)]
     update_records(doc_id, table_id, all_mark)
@@ -112,20 +113,20 @@ def process_table(doc_id, table_id, purpose_label, date_field, desc_fn):
 
 
 def main():
-    tax_debits, tax_grandfathered = process_table(
-        TAX_DOC, "Tax_Remittances", "Tax Remittance", "date_paid",
+    tax_paid, tax_grandfathered = process_table(
+        TAX_DOC, "Tax_Remittances", "Tax", "date_paid",
         lambda f, rid: f"{f.get('client_code_raw', '')} / {f.get('form', '')} (TaxRem#{rid})",
     )
-    contrib_debits, contrib_grandfathered = process_table(
-        CONTRIB_DOC, "Contribution_Remittances", "Contribution Remittance (SSS/PHIC/HDMF)", "date",
+    contrib_paid, contrib_grandfathered = process_table(
+        CONTRIB_DOC, "Contribution_Remittances", "Contributions (SSS/PHIC/HDMF)", "date",
         lambda f, rid: f"{f.get('client_code_raw', '')} / {f.get('contribution_type', '')} (ContribRem#{rid})",
     )
 
-    print(f"Tax_Remittances: {tax_debits} posted as new Fund debits, "
-          f"{tax_grandfathered} historical rows flagged (no debit).")
-    print(f"Contribution_Remittances: {contrib_debits} posted as new Fund debits, "
-          f"{contrib_grandfathered} historical rows flagged (no debit).")
-    print(f"Total new Fund debit rows this run: {tax_debits + contrib_debits}")
+    print(f"Tax_Remittances: {tax_paid} posted as new Fund_Remittance_Payments rows, "
+          f"{tax_grandfathered} historical rows flagged (no payment row).")
+    print(f"Contribution_Remittances: {contrib_paid} posted as new Fund_Remittance_Payments rows, "
+          f"{contrib_grandfathered} historical rows flagged (no payment row).")
+    print(f"Total new Fund_Remittance_Payments rows this run: {tax_paid + contrib_paid}")
 
 
 if __name__ == "__main__":
