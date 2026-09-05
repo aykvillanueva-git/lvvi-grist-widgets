@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVVI Tax Remittances</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{
+    --navy:#1c2b3a;
+    --navy-soft:#2e4257;
+    --teal:#1f7a6c;
+    --teal-dark:#155e53;
+    --paper:#f6f5f1;
+    --card:#ffffff;
+    --line:#e2e0d8;
+    --ink:#20242b;
+    --ink-soft:#5b6470;
+    --warn:#b3491f;
+    --warn-bg:#fbe9e1;
+    --ok-bg:#e9f3ef;
+    --success-text:#155e53;
+    --input-bg:#ffffff;
+    --divider:#f0efe9;
+    --chip-bg:#eee;
+    --hover-bg:#fafaf7;
+    --pill-bg:#eef1f4;
+    --disabled-bg:#a9c6c0;
+    --shadow:rgba(20,30,40,.14);
+    --radius:8px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", "Consolas", "Menlo", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --navy:#5b9bd5;
+      --navy-soft:#4a86b8;
+      --teal:#2f9c88;
+      --teal-dark:#3fb39e;
+      --success-text:#7ee0c9;
+      --paper:#1c1e21;
+      --card:#26282c;
+      --line:#40434a;
+      --ink:#eceef0;
+      --ink-soft:#9a9da2;
+      --warn:#e2825a;
+      --warn-bg:#4a2a1f;
+      --ok-bg:#1f3d36;
+      --input-bg:#1c1e21;
+      --divider:#34373c;
+      --chip-bg:#33363b;
+      --hover-bg:#303338;
+      --pill-bg:#26313a;
+      --disabled-bg:#384542;
+      --shadow:rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font);
+    background:var(--paper);
+    color:var(--ink);
+    font-size:14px;
+    line-height:1.4;
+    padding:14px;
+  }
+  h1{
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.01em;
+    color:var(--navy);
+    margin:0 0 2px 0;
+  }
+  .subtitle{
+    color:var(--ink-soft);
+    font-size:12px;
+    margin:0 0 14px 0;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .card-title{
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--navy-soft);
+    margin:0 0 10px 0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));
+    gap:10px;
+  }
+  label{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  input[type=text], input[type=number], input[type=date], select{
+    width:100%;
+    padding:7px 8px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:14px;
+    font-family:var(--font);
+    background:var(--input-bg);
+    color:var(--ink);
+  }
+  input:focus, select:focus{
+    outline:2px solid var(--teal);
+    outline-offset:1px;
+    border-color:var(--teal);
+  }
+  .field{position:relative;}
+  .client-menu{
+    position:absolute;
+    z-index:20;
+    top:100%;
+    left:0;
+    right:0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    box-shadow:0 6px 18px var(--shadow);
+    max-height:220px;
+    overflow-y:auto;
+    margin-top:2px;
+  }
+  .client-opt{
+    padding:7px 9px;
+    cursor:pointer;
+    font-size:13px;
+    border-bottom:1px solid var(--divider);
+  }
+  .client-opt:last-child{border-bottom:none;}
+  .client-opt:hover, .client-opt.active{background:var(--ok-bg);}
+  .client-opt .code{color:var(--ink-soft); font-family:var(--mono); font-size:11px;}
+  .client-opt .tag{
+    display:inline-block; margin-left:6px; font-size:10px; padding:1px 5px;
+    border-radius:4px; background:var(--chip-bg); color:var(--ink-soft);
+  }
+  .actions{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+    align-items:center;
+  }
+  button{
+    font-family:var(--font);
+    font-size:13px;
+    font-weight:600;
+    border-radius:6px;
+    border:1px solid transparent;
+    padding:8px 14px;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--teal); color:#fff;}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-primary:disabled{background:var(--disabled-bg); cursor:not-allowed;}
+  .btn-ghost{background:transparent; border-color:var(--line); color:var(--ink-soft);}
+  .btn-ghost:hover{border-color:var(--ink-soft); color:var(--ink);}
+  .btn-danger{background:transparent; border-color:var(--warn); color:var(--warn);}
+  .btn-danger:hover{background:var(--warn-bg);}
+  .msg{font-size:12px; margin-left:4px;}
+  .msg.err{color:var(--warn);}
+  .msg.ok{color:var(--success-text);}
+
+  .search-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;}
+  .search-row .field{flex:2 1 200px;}
+  .search-row .field.small{flex:1 1 120px;}
+
+  .results-meta{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+  }
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    text-align:left;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--line);
+    padding:6px 8px;
+    position:sticky; top:0; background:var(--card);
+  }
+  tbody td{
+    padding:7px 8px;
+    border-bottom:1px solid var(--divider);
+    vertical-align:top;
+  }
+  tbody tr:hover{background:var(--hover-bg);}
+  tbody tr.editing{background:var(--ok-bg);}
+  tbody tr.unmatched td{background:var(--warn-bg);}
+  .amount{font-family:var(--mono); text-align:right; white-space:nowrap;}
+  .rowbtn{
+    font-size:11px; padding:3px 8px; border-radius:5px;
+    border:1px solid var(--line); background:var(--card); color:var(--ink-soft); cursor:pointer;
+  }
+  .rowbtn:hover{border-color:var(--teal); color:var(--teal-dark);}
+  .pill{
+    display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px;
+    background:var(--pill-bg); color:var(--navy-soft); font-weight:600;
+  }
+  .form-pill{
+    display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px;
+    background:var(--pill-bg); color:var(--navy-soft); font-weight:600; font-family:var(--mono);
+  }
+  .results-scroll{max-height:360px; overflow-y:auto; border:1px solid var(--line); border-radius:6px;}
+  .empty{padding:20px; text-align:center; color:var(--ink-soft); font-size:13px;}
+  .badge-live{background:var(--ok-bg); color:var(--success-text);}
+  .badge-hist{background:var(--chip-bg); color:var(--ink-soft);}
+  .chan-pill{
+    display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px; font-weight:600;
+  }
+  .chan-office{background:var(--pill-bg); color:var(--navy-soft);}
+  .chan-chinabank{background:#fde9d0; color:#8a5a1e;}
+  .chan-unionbank{background:#e4dcf7; color:#5b3fa0;}
+  .chan-own{background:#eee; color:#666;}
+</style>
+</head>
+<body>
+
+  <h1>Tax Remittances</h1>
+  <p class="subtitle">LVVI Taxes — add, search, and correct BIR tax remittance entries</p>
+
+  <div class="card">
+    <div class="card-title">
+      <span id="form-title">New remittance</span>
+      <span class="msg" id="form-msg"></span>
+    </div>
+    <div class="grid">
+      <div class="field">
+        <label for="f-date-paid">Date Paid</label>
+        <input type="date" id="f-date-paid">
+      </div>
+      <div class="field">
+        <label for="f-date-transfer">Fund Transfer Date</label>
+        <input type="date" id="f-date-transfer">
+      </div>
+      <div class="field">
+        <label for="f-office">Office</label>
+        <select id="f-office">
+          <option value="Dagupan">Dagupan</option>
+          <option value="Pozorrubio">Pozorrubio</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-channel">Channel</label>
+        <select id="f-channel">
+          <option value="Tax Fund">Tax Fund</option>
+          <option value="Direct - Chinabank (LVVI shared, Ayk)">Direct - Chinabank (LVVI shared, Ayk)</option>
+          <option value="Direct - Unionbank (Ayk, AMLC-restricted)">Direct - Unionbank (Ayk, AMLC-restricted)</option>
+          <option value="Client's Own Account (no LVVI custody)">Client's Own Account (no LVVI custody)</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label for="f-client">Client</label>
+        <input type="text" id="f-client" placeholder="Type a client code or name…" autocomplete="off">
+        <div class="client-menu" id="client-menu" style="display:none;"></div>
+      </div>
+      <div class="field">
+        <label for="f-form">BIR Form</label>
+        <input type="text" id="f-form" list="form-list" placeholder="e.g. 1701q, 2550q…" autocomplete="off">
+        <datalist id="form-list"></datalist>
+      </div>
+      <div class="field">
+        <label for="f-amount">Tax Payment Amount</label>
+        <input type="number" id="f-amount" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <div class="field">
+        <label for="f-return-period">Return Period</label>
+        <input type="date" id="f-return-period">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="btn-save">Save remittance</button>
+      <button class="btn-ghost" id="btn-cancel" style="display:none;">Cancel edit</button>
+      <button class="btn-danger" id="btn-delete" style="display:none;">Delete</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Search &amp; filter</div>
+    <div class="search-row">
+      <div class="field">
+        <label for="s-text">Client / code</label>
+        <input type="text" id="s-text" placeholder="Search by client name or code…">
+      </div>
+      <div class="field small">
+        <label for="s-office">Office</label>
+        <select id="s-office">
+          <option value="">All</option>
+          <option value="Dagupan">Dagupan</option>
+          <option value="Pozorrubio">Pozorrubio</option>
+        </select>
+      </div>
+      <div class="field small">
+        <label for="s-channel">Channel</label>
+        <select id="s-channel">
+          <option value="">All</option>
+          <option value="Tax Fund">Tax Fund</option>
+          <option value="Direct - Chinabank (LVVI shared, Ayk)">Direct - Chinabank</option>
+          <option value="Direct - Unionbank (Ayk, AMLC-restricted)">Direct - Unionbank</option>
+          <option value="Client's Own Account (no LVVI custody)">Own Account</option>
+        </select>
+      </div>
+      <div class="field small">
+        <label for="s-form">BIR Form</label>
+        <select id="s-form">
+          <option value="">All</option>
+        </select>
+      </div>
+      <div class="field small">
+        <label for="s-from">Paid from</label>
+        <input type="date" id="s-from">
+      </div>
+      <div class="field small">
+        <label for="s-to">Paid to</label>
+        <input type="date" id="s-to">
+      </div>
+      <div class="field small">
+        <label for="s-unmatched">&nbsp;</label>
+        <select id="s-unmatched">
+          <option value="">All clients</option>
+          <option value="unmatched">Unmatched only</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="results-meta">
+      <span id="results-count">Loading…</span>
+      <span id="results-sum"></span>
+    </div>
+    <div class="results-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Date Paid</th>
+            <th>Transfer</th>
+            <th>Office</th>
+            <th>Channel</th>
+            <th>Client</th>
+            <th>BIR Form</th>
+            <th class="amount">Amount</th>
+            <th>Return Period</th>
+            <th>Source</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  var TABLE = 'Tax_Remittances';
+  var CLIENTS = 'Clients';
+
+  var state = {
+    clients: [],          // {id, A, client_name, tradename, label, search}
+    clientById: {},
+    remittances: [],      // raw rows from Grist
+    editingId: null,
+    selectedClientId: null,
+    menuIndex: -1,
+    filteredMenu: [],
+    knownForms: []
+  };
+
+  grist.ready({requiredAccess: 'full'});
+
+  grist.docApi.fetchTable(CLIENTS).then(function(data){
+    var n = data.id.length;
+    for (var i=0;i<n;i++){
+      var c = {
+        id: data.id[i],
+        A: data.A[i] || '',
+        client_name: data.client_name[i] || '',
+        tradename: data.tradename[i] || '',
+        entity_type: data.entity_type[i] || ''
+      };
+      c.label = (c.client_name || c.A);
+      c.search = (c.A + ' ' + c.client_name + ' ' + c.tradename).toLowerCase();
+      state.clients.push(c);
+      state.clientById[c.id] = c;
+    }
+    return loadRemittances();
+  }).catch(function(err){
+    showFormMsg('Could not load document: ' + err.message, true);
+  });
+
+  function loadRemittances(){
+    return grist.docApi.fetchTable(TABLE).then(function(data){
+      var n = data.id.length;
+      var rows = [];
+      for (var i=0;i<n;i++){
+        rows.push({
+          id: data.id[i],
+          date_paid: data.date_paid[i],
+          date_transfer: data.date_transfer[i],
+          office: data.office[i],
+          remittance_channel: data.remittance_channel[i] || 'Tax Fund',
+          posted_to_fund: !!data.posted_to_fund[i],
+          client: data.client[i] || 0,
+          client_code_raw: data.client_code_raw[i] || '',
+          form: data.form[i] || '',
+          amount: data.amount[i] || 0,
+          return_period: data.return_period[i],
+          source: data.source[i] || ''
+        });
+      }
+      rows.sort(function(a,b){ return (b.date_paid||0) - (a.date_paid||0); });
+      state.remittances = rows;
+      refreshFormOptions();
+      renderResults();
+    });
+  }
+
+  // ---------- known-form options (datalist + filter dropdown), built live from data ----------
+  function refreshFormOptions(){
+    var seen = {};
+    var forms = [];
+    state.remittances.forEach(function(r){
+      var f = (r.form || '').trim();
+      if (f && !seen[f.toLowerCase()]){ seen[f.toLowerCase()] = true; forms.push(f); }
+    });
+    forms.sort(function(a,b){ return a.toLowerCase().localeCompare(b.toLowerCase()); });
+    state.knownForms = forms;
+
+    var datalist = document.getElementById('form-list');
+    datalist.innerHTML = forms.map(function(f){ return '<option value="'+escapeHtml(f)+'">'; }).join('');
+
+    var sel = document.getElementById('s-form');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">All</option>' + forms.map(function(f){
+      return '<option value="'+escapeHtml(f)+'">'+escapeHtml(f)+'</option>';
+    }).join('');
+    if (forms.indexOf(current) !== -1) sel.value = current;
+  }
+
+  // ---------- date helpers ----------
+  function tsToInputDate(ts){
+    if (!ts) return '';
+    var d = new Date(ts*1000);
+    return d.toISOString().slice(0,10);
+  }
+  function inputDateToTs(str){
+    if (!str) return null;
+    var parts = str.split('-');
+    return Math.floor(Date.UTC(+parts[0], +parts[1]-1, +parts[2]) / 1000);
+  }
+  function fmtDate(ts){
+    if (!ts) return '—';
+    var d = new Date(ts*1000);
+    return d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric', timeZone:'UTC'});
+  }
+  function fmtAmount(n){
+    return (n||0).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  // ---------- client autocomplete ----------
+  var clientInput = document.getElementById('f-client');
+  var clientMenu = document.getElementById('client-menu');
+
+  clientInput.addEventListener('input', function(){
+    state.selectedClientId = null;
+    var q = clientInput.value.trim().toLowerCase();
+    if (!q){ closeMenu(); return; }
+    var matches = state.clients.filter(function(c){
+      return c.search.indexOf(q) !== -1;
+    }).slice(0, 8);
+    state.filteredMenu = matches;
+    state.menuIndex = -1;
+    if (!matches.length){ closeMenu(); return; }
+    clientMenu.innerHTML = matches.map(function(c, idx){
+      return '<div class="client-opt" data-idx="'+idx+'" data-id="'+c.id+'">' +
+        escapeHtml(c.label) +
+        (c.tradename && c.tradename !== c.client_name ? ' <span class="code">— '+escapeHtml(c.tradename)+'</span>' : '') +
+        ' <span class="code">('+escapeHtml(c.A)+')</span>' +
+        (c.entity_type === 'Affiliated Business Unit' ? '<span class="tag">in-house</span>' : '') +
+        '</div>';
+    }).join('');
+    clientMenu.style.display = 'block';
+    Array.prototype.forEach.call(clientMenu.querySelectorAll('.client-opt'), function(el){
+      el.addEventListener('click', function(){
+        selectClient(+el.getAttribute('data-id'));
+      });
+    });
+  });
+
+  clientInput.addEventListener('keydown', function(e){
+    if (clientMenu.style.display === 'none') return;
+    if (e.key === 'ArrowDown'){
+      e.preventDefault();
+      state.menuIndex = Math.min(state.menuIndex+1, state.filteredMenu.length-1);
+      highlightMenu();
+    } else if (e.key === 'ArrowUp'){
+      e.preventDefault();
+      state.menuIndex = Math.max(state.menuIndex-1, 0);
+      highlightMenu();
+    } else if (e.key === 'Enter'){
+      e.preventDefault();
+      if (state.menuIndex >= 0 && state.filteredMenu[state.menuIndex]){
+        selectClient(state.filteredMenu[state.menuIndex].id);
+      }
+    } else if (e.key === 'Escape'){
+      closeMenu();
+    }
+  });
+
+  document.addEventListener('click', function(e){
+    if (!clientMenu.contains(e.target) && e.target !== clientInput) closeMenu();
+  });
+
+  function highlightMenu(){
+    Array.prototype.forEach.call(clientMenu.querySelectorAll('.client-opt'), function(el, i){
+      el.classList.toggle('active', i === state.menuIndex);
+    });
+  }
+  function closeMenu(){
+    clientMenu.style.display = 'none';
+    clientMenu.innerHTML = '';
+  }
+  function selectClient(id){
+    var c = state.clientById[id];
+    if (!c) return;
+    state.selectedClientId = id;
+    clientInput.value = c.label + ' (' + c.A + ')';
+    closeMenu();
+  }
+
+  // Fallback: if the person typed a client code or name exactly but never clicked
+  // a suggestion (so state.selectedClientId is still null), try to resolve it
+  // anyway before treating it as unmatched. Only auto-links on an unambiguous
+  // exact match against client code or client name — never a partial/fuzzy match,
+  // to avoid silently linking the wrong client.
+  function resolveClientId(text){
+    if (state.selectedClientId) return state.selectedClientId;
+    var q = (text || '').trim().toLowerCase();
+    if (!q) return 0;
+    var byCode = state.clients.filter(function(c){ return c.A.toLowerCase() === q; });
+    if (byCode.length === 1) return byCode[0].id;
+    var byName = state.clients.filter(function(c){ return c.client_name.toLowerCase() === q; });
+    if (byName.length === 1) return byName[0].id;
+    return 0;
+  }
+
+  // ---------- form message ----------
+  var formMsgEl = document.getElementById('form-msg');
+  function showFormMsg(text, isErr){
+    formMsgEl.textContent = text;
+    formMsgEl.className = 'msg ' + (isErr ? 'err' : 'ok');
+    if (text) setTimeout(function(){ formMsgEl.textContent=''; }, 4000);
+  }
+
+  // ---------- form reset / populate ----------
+  function resetForm(){
+    document.getElementById('f-date-paid').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-date-transfer').value = '';
+    document.getElementById('f-office').value = 'Dagupan';
+    document.getElementById('f-channel').value = 'Tax Fund';
+    clientInput.value = '';
+    state.selectedClientId = null;
+    document.getElementById('f-form').value = '';
+    document.getElementById('f-amount').value = '';
+    document.getElementById('f-return-period').value = '';
+    state.editingId = null;
+    document.getElementById('form-title').textContent = 'New remittance';
+    document.getElementById('btn-save').textContent = 'Save remittance';
+    document.getElementById('btn-cancel').style.display = 'none';
+    document.getElementById('btn-delete').style.display = 'none';
+    Array.prototype.forEach.call(document.querySelectorAll('tr.editing'), function(el){
+      el.classList.remove('editing');
+    });
+  }
+
+  function populateFormForEdit(row){
+    state.editingId = row.id;
+    document.getElementById('f-date-paid').value = tsToInputDate(row.date_paid);
+    document.getElementById('f-date-transfer').value = tsToInputDate(row.date_transfer);
+    document.getElementById('f-office').value = row.office || 'Dagupan';
+    document.getElementById('f-channel').value = row.remittance_channel || 'Tax Fund';
+    if (row.client && state.clientById[row.client]){
+      var c = state.clientById[row.client];
+      state.selectedClientId = c.id;
+      clientInput.value = c.label + ' (' + c.A + ')';
+    } else {
+      state.selectedClientId = null;
+      clientInput.value = row.client_code_raw || '';
+    }
+    document.getElementById('f-form').value = row.form || '';
+    document.getElementById('f-amount').value = row.amount || '';
+    document.getElementById('f-return-period').value = tsToInputDate(row.return_period);
+    document.getElementById('form-title').textContent = 'Editing remittance #' + row.id;
+    document.getElementById('btn-save').textContent = 'Update remittance';
+    document.getElementById('btn-cancel').style.display = '';
+    document.getElementById('btn-delete').style.display = '';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  document.getElementById('btn-cancel').addEventListener('click', resetForm);
+
+  document.getElementById('btn-delete').addEventListener('click', function(){
+    if (state.editingId == null) return;
+    if (!confirm('Delete this remittance entry? This cannot be undone.')) return;
+    grist.docApi.applyUserActions([['RemoveRecord', TABLE, state.editingId]])
+      .then(function(){
+        showFormMsg('Deleted.', false);
+        resetForm();
+        return loadRemittances();
+      })
+      .catch(function(err){ showFormMsg('Delete failed: ' + err.message, true); });
+  });
+
+  // ---------- save / update ----------
+  document.getElementById('btn-save').addEventListener('click', function(){
+    var datePaidVal = document.getElementById('f-date-paid').value;
+    var dateTransferVal = document.getElementById('f-date-transfer').value;
+    var office = document.getElementById('f-office').value;
+    var channelVal = document.getElementById('f-channel').value;
+    var formVal = document.getElementById('f-form').value.trim();
+    var amountVal = parseFloat(document.getElementById('f-amount').value);
+    var returnPeriodVal = document.getElementById('f-return-period').value;
+    var clientText = clientInput.value.trim();
+
+    if (!datePaidVal){ showFormMsg('Date Paid is required.', true); return; }
+    if (!clientText){ showFormMsg('Enter a client or a code.', true); return; }
+    if (!formVal){ showFormMsg('Enter a BIR form.', true); return; }
+    if (isNaN(amountVal) || amountVal <= 0){ showFormMsg('Enter a valid amount.', true); return; }
+
+    var resolvedClientId = resolveClientId(clientText);
+    var clientRawCode = resolvedClientId
+      ? state.clientById[resolvedClientId].A
+      : clientText;
+
+    // posted_to_fund is auto-derived from channel, never hand-edited.
+    // Tax Fund channel entries are left UNposted here on purpose: they're the
+    // ones that actually draw down the Tax Fund's physical cash, so they must
+    // stay pending until the fund-refresh cron/firm-wide-refresh Step 6 turns
+    // them into a real Fund_Remittance_Payments row (which is what makes the
+    // draw show up in Fund_Accountability). Every other channel bypasses Fund
+    // custody entirely (paid from a bank account or the client's own money),
+    // so those are safe to flag posted immediately -- there's nothing for the
+    // cron to post for them.
+    var postedToFund = (channelVal !== 'Tax Fund');
+
+    var fields = {
+      date_paid: inputDateToTs(datePaidVal),
+      date_transfer: dateTransferVal ? inputDateToTs(dateTransferVal) : null,
+      office: office,
+      remittance_channel: channelVal,
+      posted_to_fund: postedToFund,
+      client: resolvedClientId,
+      client_code_raw: clientRawCode,
+      form: formVal,
+      amount: amountVal,
+      return_period: returnPeriodVal ? inputDateToTs(returnPeriodVal) : null
+    };
+
+    var btn = document.getElementById('btn-save');
+    btn.disabled = true;
+
+    var action;
+    if (state.editingId != null){
+      action = ['UpdateRecord', TABLE, state.editingId, fields];
+    } else {
+      fields.source = 'Live entry';
+      action = ['AddRecord', TABLE, null, fields];
+    }
+
+    grist.docApi.applyUserActions([action])
+      .then(function(){
+        showFormMsg(state.editingId != null ? 'Updated.' : 'Saved.', false);
+        resetForm();
+        return loadRemittances();
+      })
+      .catch(function(err){
+        showFormMsg('Save failed: ' + err.message, true);
+      })
+      .then(function(){ btn.disabled = false; });
+  });
+
+  // ---------- search / filter ----------
+  var searchEls = ['s-text','s-office','s-channel','s-form','s-from','s-to','s-unmatched']
+    .map(function(id){ return document.getElementById(id); });
+  searchEls.forEach(function(el){ el.addEventListener('input', renderResults); el.addEventListener('change', renderResults); });
+
+  function renderResults(){
+    var q = document.getElementById('s-text').value.trim().toLowerCase();
+    var officeF = document.getElementById('s-office').value;
+    var formF = document.getElementById('s-form').value;
+    var fromV = document.getElementById('s-from').value;
+    var toV = document.getElementById('s-to').value;
+    var unmatchedF = document.getElementById('s-unmatched').value;
+    var channelF = document.getElementById('s-channel').value;
+    var fromTs = fromV ? inputDateToTs(fromV) : null;
+    var toTs = toV ? inputDateToTs(toV) + 86399 : null;
+
+    var rows = state.remittances.filter(function(r){
+      if (officeF && r.office !== officeF) return false;
+      if (formF && r.form !== formF) return false;
+      if (fromTs != null && r.date_paid < fromTs) return false;
+      if (toTs != null && r.date_paid > toTs) return false;
+      if (unmatchedF === 'unmatched' && r.client) return false;
+      if (channelF && r.remittance_channel !== channelF) return false;
+      if (q){
+        var c = state.clientById[r.client];
+        var hay = ((c ? (c.A+' '+c.client_name+' '+c.tradename) : '') + ' ' + r.client_code_raw).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    var body = document.getElementById('results-body');
+    if (!rows.length){
+      body.innerHTML = '<tr><td colspan="10"><div class="empty">No remittances match this search.</div></td></tr>';
+    } else {
+      body.innerHTML = rows.map(rowHtml).join('');
+      Array.prototype.forEach.call(body.querySelectorAll('.rowbtn'), function(btn){
+        btn.addEventListener('click', function(){
+          var id = +btn.getAttribute('data-id');
+          var row = state.remittances.filter(function(r){ return r.id===id; })[0];
+          if (row) populateFormForEdit(row);
+        });
+      });
+    }
+
+    var sum = rows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
+    document.getElementById('results-count').textContent = rows.length + ' remittance' + (rows.length===1?'':'s');
+    document.getElementById('results-sum').textContent = 'Total: ₱' + fmtAmount(sum);
+  }
+
+  var CHANNEL_META = {
+    'Tax Fund': {cls:'chan-office', label:'Tax Fund'},
+    'Direct - Chinabank (LVVI shared, Ayk)': {cls:'chan-chinabank', label:'Chinabank'},
+    'Direct - Unionbank (Ayk, AMLC-restricted)': {cls:'chan-unionbank', label:'Unionbank'},
+    "Client's Own Account (no LVVI custody)": {cls:'chan-own', label:'Own Acct'}
+  };
+  function channelPill(channel){
+    var meta = CHANNEL_META[channel] || {cls:'chan-office', label: channel || 'Office Fund'};
+    return '<span class="chan-pill ' + meta.cls + '">' + escapeHtml(meta.label) + '</span>';
+  }
+
+  function rowHtml(r){
+    var c = state.clientById[r.client];
+    var clientLabel = c ? escapeHtml(c.label) : ('<em>' + escapeHtml(r.client_code_raw || '—') + '</em>');
+    var sourceBadge = r.source === 'Live entry'
+      ? '<span class="pill badge-live">live</span>'
+      : '<span class="pill badge-hist">migrated</span>';
+    return '<tr class="' + (r.client ? '' : 'unmatched') + '">' +
+      '<td>' + fmtDate(r.date_paid) + '</td>' +
+      '<td>' + fmtDate(r.date_transfer) + '</td>' +
+      '<td>' + escapeHtml(r.office||'') + '</td>' +
+      '<td>' + channelPill(r.remittance_channel) + '</td>' +
+      '<td>' + clientLabel + '</td>' +
+      '<td><span class="form-pill">' + escapeHtml(r.form||'—') + '</span></td>' +
+      '<td class="amount">' + fmtAmount(r.amount) + '</td>' +
+      '<td>' + fmtDate(r.return_period) + '</td>' +
+      '<td>' + sourceBadge + '</td>' +
+      '<td><button class="rowbtn" data-id="'+r.id+'">Edit</button></td>' +
+      '</tr>';
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  resetForm();
+})();
+</script>
+</body>
+</html>
