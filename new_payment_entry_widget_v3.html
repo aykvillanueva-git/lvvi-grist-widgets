@@ -295,7 +295,7 @@
         <option value="Globe/Comms">Globe/Comms</option>
         <option value="Electric">Electric</option>
         <option value="Supplies">Supplies</option>
-        <option value="BIR LGU etc">BIR LGU etc</option>
+        <option value="LGU etc">LGU etc</option>
         <option value="Asset">Asset</option>
         <option value="CA">CA</option>
         <option value="Poz-supplies" data-office-only="Dagupan">Poz-supplies</option>
@@ -370,7 +370,7 @@ function recompute() {
   if (!methodTouched) {
     const encodedBy = document.getElementById('f-encoded-by').value;
     const methodSelect = document.getElementById('f-payment-method');
-    if (encodedBy === 'Gladys') {
+    if (encodedBy === 'Gladys' || encodedBy === 'Atheena') {
       methodSelect.value = 'Cash';
     } else if (salary || sss || phic || hdmf) {
       methodSelect.value = 'Noncash';
@@ -415,11 +415,12 @@ function updateOthersDescOptionsForOffice(office) {
 }
 document.getElementById('f-client').addEventListener('input', updateClientHint);
 
-// Gladys is only ever the default encoder for Dagupan; any other office
-// defaults to Ayk. Manually picking an encoder (encodedByTouched) stops
-// this from overriding the user's own choice.
+// Atheena is now the default encoder for Dagupan (Gladys on maternity
+// leave as of 2026-09); any other office defaults to Ayk. Manually
+// picking an encoder (encodedByTouched) stops this from overriding the
+// user's own choice.
 function defaultEncodedByForOffice(office) {
-  return office === 'Dagupan' ? 'Gladys' : 'Ayk';
+  return office === 'Dagupan' ? 'Atheena' : 'Ayk';
 }
 document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
 document.getElementById('f-office').addEventListener('change', () => {
@@ -548,13 +549,14 @@ async function loadDefaults() {
       document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
     }
   }
-  // Safety net: Gladys is only ever a valid default for Dagupan. If the
-  // inferred office/encoder pairing above somehow lands on Gladys for a
-  // non-Dagupan office, correct it -- but never override an encoder the
-  // user has deliberately picked themselves.
+  // Safety net: Gladys and Atheena are only ever valid defaults for
+  // Dagupan. If the inferred office/encoder pairing above somehow lands
+  // on either for a non-Dagupan office, correct it -- but never override
+  // an encoder the user has deliberately picked themselves.
   if (!encodedByTouched &&
       document.getElementById('f-office').value !== 'Dagupan' &&
-      document.getElementById('f-encoded-by').value === 'Gladys') {
+      (document.getElementById('f-encoded-by').value === 'Gladys' ||
+       document.getElementById('f-encoded-by').value === 'Atheena')) {
     document.getElementById('f-encoded-by').value = 'Ayk';
   }
   updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
