@@ -387,7 +387,11 @@ function recompute() {
   if (!methodTouched) {
     const encodedBy = document.getElementById('f-encoded-by').value;
     const methodSelect = document.getElementById('f-payment-method');
-    if (encodedBy === 'Gladys') {
+    // Cash-till encoders default to Cash payment method. Atheena is the
+    // current Dagupan cash custodian; Gladys (on maternity leave) held
+    // the same role before her and may resume it later, so both are
+    // checked rather than swapping one name for the other.
+    if (encodedBy === 'Atheena' || encodedBy === 'Gladys') {
       methodSelect.value = 'Cash';
     } else if (salary || sss || phic || hdmf) {
       methodSelect.value = 'Noncash';
@@ -432,11 +436,15 @@ function updateOthersDescOptionsForOffice(office) {
 }
 document.getElementById('f-client').addEventListener('input', updateClientHint);
 
-// Gladys is only ever the default encoder for Dagupan; any other office
-// defaults to Ayk. Manually picking an encoder (encodedByTouched) stops
-// this from overriding the user's own choice.
+// Atheena is the current default encoder for Dagupan (cash custodian as of
+// 2026-09-05); any other office defaults to Ayk. Manually picking an
+// encoder (encodedByTouched) stops this from overriding the user's own
+// choice.
 function defaultEncodedByForOffice(office) {
-  return office === 'Dagupan' ? 'Gladys' : 'Ayk';
+  // Standing staffing rule: Atheena is Dagupan's cash custodian/encoder
+  // (took over from Gladys, who is on maternity leave, as of 2026-09-05).
+  // Ayk remains the default for Pozorrubio.
+  return office === 'Dagupan' ? 'Atheena' : 'Ayk';
 }
 document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
 document.getElementById('f-office').addEventListener('change', () => {
@@ -529,11 +537,8 @@ async function loadDefaults() {
       for (let i = 1; i < ids.length; i++) {
         if (ids[i] > ids[maxIdx]) maxIdx = i;
       }
-      const lastEncodedBy = disb.encoded_by[maxIdx];
       const lastMethod = disb.payment_method[maxIdx];
       const lastDate = disb.date[maxIdx];
-
-      if (lastEncodedBy && !encodedByTouched) document.getElementById('f-encoded-by').value = lastEncodedBy;
 
       // Office defaults to THIS doc's dominant/home office (majority vote
       // across all disbursement rows), not just whatever office the single
@@ -545,19 +550,6 @@ async function loadDefaults() {
       // flipped the default for the very next normal entry too, which also
       // surfaced the Dagupan-only "Poz-supplies" option while working
       // inside the Pozorrubio doc.
-      //
-      // IMPORTANT (fixed 2026-07-30): this used to also force office to
-      // "Dagupan" whenever the last row's encoder was Gladys ("she never
-      // encodes for Pozorrubio"). That assumption broke exactly the same
-      // way inside the Pozorrubio doc: a legitimate Gladys-encoded
-      // cross-office row as the most recent row silently overrode the
-      // correct majority-vote homeOffice ("Pozorrubio") back to "Dagupan"
-      // -- and because office ended up "Dagupan", the safety net below
-      // (which only corrects encoded-by when office !== 'Dagupan') never
-      // fired either, so both Office and Encoded-by defaulted wrong at
-      // once inside the Pozorrubio Quick Entry page. Office must come
-      // purely from the doc's own majority vote, never inferred backwards
-      // from who happened to encode the last row.
       const officeCounts = {};
       for (const o of (disb.office || [])) {
         if (o) officeCounts[o] = (officeCounts[o] || 0) + 1;
@@ -568,6 +560,18 @@ async function loadDefaults() {
       }
       const office = homeOffice;
       if (!officeTouched) document.getElementById('f-office').value = office;
+
+      // Encoded-by default follows the standing staffing rule (Atheena for
+      // Dagupan, Ayk for Pozorrubio) rather than the last row's actual
+      // encoder. Deriving it from history broke as soon as a staff
+      // transition happened and no new rows had landed yet -- after
+      // Atheena took over as Dagupan's cash custodian on 2026-09-05, this
+      // kept defaulting to "Gladys" because Gladys was still the encoder
+      // on the last *pre-transition* row. Never overrides an encoder the
+      // user has deliberately picked themselves.
+      if (!encodedByTouched) {
+        document.getElementById('f-encoded-by').value = defaultEncodedByForOffice(office);
+      }
 
       if (lastMethod && !methodTouched) {
         document.getElementById('f-payment-method').value = lastMethod;
@@ -588,15 +592,13 @@ async function loadDefaults() {
     if (!dateTouched) {
       document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
     }
-  }
-  // Safety net: Gladys is only ever a valid default for Dagupan. If the
-  // inferred office/encoder pairing above somehow lands on Gladys for a
-  // non-Dagupan office, correct it -- but never override an encoder the
-  // user has deliberately picked themselves.
-  if (!encodedByTouched &&
-      document.getElementById('f-office').value !== 'Dagupan' &&
-      document.getElementById('f-encoded-by').value === 'Gladys') {
-    document.getElementById('f-encoded-by').value = 'Ayk';
+    // fetchTable failed entirely -- still apply the office-based encoder
+    // default rather than leaving whatever the HTML's static first
+    // <option> happens to be.
+    if (!encodedByTouched) {
+      document.getElementById('f-encoded-by').value =
+        defaultEncodedByForOffice(document.getElementById('f-office').value);
+    }
   }
   updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
   recompute();
