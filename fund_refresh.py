@@ -116,25 +116,22 @@ def process_table(doc_id, table_id, fund_label, date_field, desc_fn):
 def write_fund_balance_snapshot():
     """Writes fund_balance.json (repo root) so the Tax and Contribution Remittance
     widgets -- each bound to their own Grist doc -- can display the Dagupan doc's
-    Fund_Accountability balances without needing a cross-doc API key embedded in a
-    publicly-hosted page. Harmless to expose publicly: just two balances + dates,
-    no credentials."""
+    Fund_Accountability balance without needing a cross-doc API key embedded in a
+    publicly-hosted page. Harmless to expose publicly: just a balance + date,
+    no credentials.
+
+    Tax and Contributions are tracked as a single combined fund (one
+    Fund_Accountability row) as of 2026-09, so this writes one balance figure,
+    not a per-fund breakdown."""
     rows = list_all(DAGUPAN_DOC, "Fund_Accountability")
     snapshot = {}
-    for r in rows:
-        f = r["fields"]
-        fund = f.get("fund") or ""
-        balance = f.get("net_balance")
+    if rows:
+        f = rows[0]["fields"]
         odate = f.get("opening_balance_date")
-        iso_date = None
-        if odate:
-            iso_date = datetime.fromtimestamp(odate, tz=timezone.utc).strftime("%Y-%m-%d")
-        if fund == "Tax Fund":
-            snapshot["tax_fund_balance"] = balance
-            snapshot["tax_fund_as_of"] = iso_date
-        elif fund.startswith("Contributions Fund"):
-            snapshot["contributions_fund_balance"] = balance
-            snapshot["contributions_fund_as_of"] = iso_date
+        snapshot["fund_balance"] = f.get("net_balance")
+        snapshot["fund_as_of"] = (
+            datetime.fromtimestamp(odate, tz=timezone.utc).strftime("%Y-%m-%d") if odate else None
+        )
     snapshot["last_synced_utc"] = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with open("fund_balance.json", "w") as fh:
         json.dump(snapshot, fh, indent=2)

@@ -1,7 +1,5 @@
 {
-  "tax_fund_balance": 72.29,
-  "tax_fund_as_of": "2026-09-06",
-  "contributions_fund_balance": 2039.3,
-  "contributions_fund_as_of": "2026-09-04",
-  "last_synced_utc": "2026-09-06T00:00:00Z"
+  "fund_balance": 2111.59,
+  "fund_as_of": "2026-09-06",
+  "last_synced_utc": "2026-09-07T00:00:00Z"
 }
