@@ -200,29 +200,34 @@
   .totals-inline .metric label {
     margin-bottom: 0;
   }
-  .cash-balance-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 14px 0;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--accent-bg);
+  .cash-balance-inline {
+    display: none;
+    align-items: baseline;
+    gap: 6px;
     font-size: 13px;
+    font-weight: normal;
     color: var(--muted);
+    margin-left: 12px;
+    cursor: help;
   }
-  .cash-balance-bar strong { color: var(--text); }
+  .cash-balance-inline strong { color: var(--text); }
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
 </style>
 </head>
 <body>
 
-<div class="cash-balance-bar" id="cash-balance-bar" style="display:none;">
-  <span id="cash-balance-text"></span>
-</div>
-
 <section>
-  <h2 class="entry-emphasis">Payments</h2>
+  <div class="title-row">
+    <h2 class="entry-emphasis">Payments</h2>
+    <span class="cash-balance-inline" id="cash-balance-bar" title="Cash-tagged Salary rows are excluded from this figure">
+      <span id="cash-balance-text"></span>
+    </span>
+  </div>
   <div class="row">
     <div>
       <label>Date <span class="req">*</span></label>
@@ -280,7 +285,7 @@
       <input type="number" id="f-misc" step="1" placeholder="0">
     </div>
     <div>
-      <label>Client's Contri/Others</label>
+      <label>Client's Expenses</label>
       <input type="number" id="f-contri-others" step="1" placeholder="0">
     </div>
     <div>
@@ -519,10 +524,11 @@ async function loadCashBalance() {
     const bal = acct.pure_cash_on_hand_native[0];
     const fmted = 'P' + Number(bal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     // Note: a Cash-method row with a Salary amount doesn't move this figure --
-    // salaries are tracked Grist-only, separate from this cash reconciliation --
-    // worth flagging here since it's the payment form where that exclusion bites.
-    text.innerHTML = '\u{1F4B5} Cash On Hand (Dagupan, live): <strong>' + fmted + '</strong> &middot; updates instantly with Cash entries (Salary-tagged rows excluded)';
-    bar.style.display = '';
+    // salaries are tracked Grist-only, separate from this cash reconciliation.
+    // Full explanation is in the element's title tooltip rather than inline
+    // text, to keep this compact on the title row.
+    text.innerHTML = '\u{1F4B5} Cash On Hand (Dagupan, live): <strong>' + fmted + '</strong>';
+    bar.style.display = 'inline-flex';
   } catch (e) {
     bar.style.display = 'none';
   }
