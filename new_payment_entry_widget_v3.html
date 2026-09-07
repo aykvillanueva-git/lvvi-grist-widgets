@@ -200,9 +200,26 @@
   .totals-inline .metric label {
     margin-bottom: 0;
   }
+  .cash-balance-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--accent-bg);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .cash-balance-bar strong { color: var(--text); }
 </style>
 </head>
 <body>
+
+<div class="cash-balance-bar" id="cash-balance-bar" style="display:none;">
+  <span id="cash-balance-text"></span>
+</div>
 
 <section>
   <h2 class="entry-emphasis">Payments</h2>
@@ -370,7 +387,7 @@ function recompute() {
   if (!methodTouched) {
     const encodedBy = document.getElementById('f-encoded-by').value;
     const methodSelect = document.getElementById('f-payment-method');
-    if (encodedBy === 'Gladys' || encodedBy === 'Atheena') {
+    if (encodedBy === 'Gladys') {
       methodSelect.value = 'Cash';
     } else if (salary || sss || phic || hdmf) {
       methodSelect.value = 'Noncash';
@@ -415,12 +432,11 @@ function updateOthersDescOptionsForOffice(office) {
 }
 document.getElementById('f-client').addEventListener('input', updateClientHint);
 
-// Atheena is now the default encoder for Dagupan (Gladys on maternity
-// leave as of 2026-09); any other office defaults to Ayk. Manually
-// picking an encoder (encodedByTouched) stops this from overriding the
-// user's own choice.
+// Gladys is only ever the default encoder for Dagupan; any other office
+// defaults to Ayk. Manually picking an encoder (encodedByTouched) stops
+// this from overriding the user's own choice.
 function defaultEncodedByForOffice(office) {
-  return office === 'Dagupan' ? 'Atheena' : 'Ayk';
+  return office === 'Dagupan' ? 'Gladys' : 'Ayk';
 }
 document.getElementById('f-encoded-by').addEventListener('change', () => { encodedByTouched = true; });
 document.getElementById('f-office').addEventListener('change', () => {
@@ -478,6 +494,30 @@ function setStatus(msg, kind) {
   const el = document.getElementById('status-msg');
   el.textContent = msg;
   el.className = kind || '';
+}
+
+// Live Cash On Hand readout, read directly from Atheena_Accountability
+// (same doc, so no cross-doc JSON-snapshot workaround needed like the
+// remittance widgets use for the shared fund balance). That table only
+// exists in the Dagupan doc -- Pozorrubio has no equivalent cash
+// accountability setup yet, so a fetch failure there just hides the bar
+// rather than showing a stale/misleading number.
+async function loadCashBalance() {
+  const bar = document.getElementById('cash-balance-bar');
+  const text = document.getElementById('cash-balance-text');
+  try {
+    const acct = await grist.docApi.fetchTable('Atheena_Accountability');
+    if (!acct.pure_cash_on_hand_native || !acct.pure_cash_on_hand_native.length) throw new Error('no data');
+    const bal = acct.pure_cash_on_hand_native[0];
+    const fmted = 'P' + Number(bal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Note: a Cash-method row with a Salary amount doesn't move this figure --
+    // salaries are tracked Grist-only, separate from this cash reconciliation --
+    // worth flagging here since it's the payment form where that exclusion bites.
+    text.innerHTML = '\u{1F4B5} Cash On Hand (Dagupan, live): <strong>' + fmted + '</strong> &middot; updates instantly with Cash entries (Salary-tagged rows excluded)';
+    bar.style.display = '';
+  } catch (e) {
+    bar.style.display = 'none';
+  }
 }
 
 async function loadDefaults() {
@@ -549,14 +589,13 @@ async function loadDefaults() {
       document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
     }
   }
-  // Safety net: Gladys and Atheena are only ever valid defaults for
-  // Dagupan. If the inferred office/encoder pairing above somehow lands
-  // on either for a non-Dagupan office, correct it -- but never override
-  // an encoder the user has deliberately picked themselves.
+  // Safety net: Gladys is only ever a valid default for Dagupan. If the
+  // inferred office/encoder pairing above somehow lands on Gladys for a
+  // non-Dagupan office, correct it -- but never override an encoder the
+  // user has deliberately picked themselves.
   if (!encodedByTouched &&
       document.getElementById('f-office').value !== 'Dagupan' &&
-      (document.getElementById('f-encoded-by').value === 'Gladys' ||
-       document.getElementById('f-encoded-by').value === 'Atheena')) {
+      document.getElementById('f-encoded-by').value === 'Gladys') {
     document.getElementById('f-encoded-by').value = 'Ayk';
   }
   updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
@@ -667,6 +706,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
     setStatus('Saved: ' + document.getElementById('calc-label').textContent, 'success');
     resetFormAfterSave();
+    loadCashBalance();
   } catch (e) {
     setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
   } finally {
@@ -678,6 +718,7 @@ updateOthersDescOptionsForOffice(document.getElementById('f-office').value);
 grist.ready({ requiredAccess: 'full' });
 loadDefaults();
 loadClients();
+loadCashBalance();
 </script>
 </body>
 </html>

@@ -225,9 +225,26 @@
   #status-msg.error { color: var(--danger); }
   #status-msg.success { color: var(--success); }
   datalist { }
+  .cash-balance-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--accent-bg);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .cash-balance-bar strong { color: var(--text); }
 </style>
 </head>
 <body>
+
+<div class="cash-balance-bar" id="cash-balance-bar" style="display:none;">
+  <span id="cash-balance-text"></span>
+</div>
 
 <section>
   <h2 class="entry-emphasis">Collections</h2>
@@ -483,6 +500,27 @@ function setStatus(msg, kind) {
   el.className = kind || '';
 }
 
+// Live Cash On Hand readout, read directly from Atheena_Accountability
+// (same doc, so no cross-doc JSON-snapshot workaround needed like the
+// remittance widgets use for the shared fund balance). That table only
+// exists in the Dagupan doc -- Pozorrubio has no equivalent cash
+// accountability setup yet, so a fetch failure there just hides the bar
+// rather than showing a stale/misleading number.
+async function loadCashBalance() {
+  const bar = document.getElementById('cash-balance-bar');
+  const text = document.getElementById('cash-balance-text');
+  try {
+    const acct = await grist.docApi.fetchTable('Atheena_Accountability');
+    if (!acct.pure_cash_on_hand_native || !acct.pure_cash_on_hand_native.length) throw new Error('no data');
+    const bal = acct.pure_cash_on_hand_native[0];
+    const fmted = 'P' + Number(bal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    text.innerHTML = '\u{1F4B5} Cash On Hand (Dagupan, live): <strong>' + fmted + '</strong> &middot; updates instantly with each Cash entry';
+    bar.style.display = '';
+  } catch (e) {
+    bar.style.display = 'none';
+  }
+}
+
 async function loadDefaults() {
   try {
     const collections = await grist.docApi.fetchTable('Daily_cash_collections');
@@ -527,13 +565,11 @@ async function loadDefaults() {
       const office = homeOffice;
       document.getElementById('f-office').value = office;
 
-      // Safety net: Gladys and Atheena (the Dagupan encoders -- Atheena is
-      // now the default as of 2026-09, Gladys on maternity leave) are only
-      // ever valid defaults for Dagupan. If the last row's encoder was one
-      // of them but this doc's home office isn't Dagupan (a cross-office
-      // row happened to be last), don't leave the Encoded-by default there.
-      const lastEnc = document.getElementById('f-encoded-by').value;
-      if (office !== 'Dagupan' && (lastEnc === 'Gladys' || lastEnc === 'Atheena')) {
+      // Safety net: Gladys is only ever a valid default encoder for
+      // Dagupan. If the last row's encoder was Gladys but this doc's home
+      // office isn't Dagupan (a cross-office row happened to be last),
+      // don't leave the Encoded-by default on Gladys.
+      if (office !== 'Dagupan' && document.getElementById('f-encoded-by').value === 'Gladys') {
         document.getElementById('f-encoded-by').value = 'Ayk';
       }
 
@@ -659,6 +695,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     setStatus('Saved: ' + document.getElementById('calc-label').textContent, 'success');
     resetFormAfterSave();
     loadClients();
+    loadCashBalance();
   } catch (e) {
     setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
   } finally {
@@ -669,6 +706,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 grist.ready({ requiredAccess: 'full' });
 loadDefaults();
 loadClients();
+loadCashBalance();
 </script>
 </body>
 </html>
