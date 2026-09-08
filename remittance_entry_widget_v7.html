@@ -238,7 +238,7 @@
   <h1>Contribution Remittances</h1>
   <p class="subtitle">LVVI Contributions — add, search, and correct SSS / PHIC / HDMF remittance entries</p>
   <div class="fund-refresh-bar">
-    <span class="fund-refresh-status" id="fund-bar-text">🔄 Loading Contributions Fund balance…</span>
+    <span class="fund-refresh-status">🔄 Fund balance syncs automatically every 12 hours, and instantly after a firm-wide refresh — no action needed.</span>
   </div>
 
 
@@ -267,7 +267,7 @@
       <div class="field">
         <label for="f-type">Type</label>
         <select id="f-type">
-          <option value="Blended/Unspecified">Blended / Unspecified</option>
+          <option value="Blended/Unspecified">Others</option>
           <option value="SSS">SSS</option>
           <option value="PHIC">PHIC</option>
           <option value="HDMF">HDMF</option>
@@ -327,7 +327,7 @@
           <option value="SSS">SSS</option>
           <option value="PHIC">PHIC</option>
           <option value="HDMF">HDMF</option>
-          <option value="Blended/Unspecified">Blended</option>
+          <option value="Blended/Unspecified">Others</option>
         </select>
       </div>
       <div class="field small">
@@ -389,34 +389,6 @@
     menuIndex: -1,
     filteredMenu: []
   };
-
-  // Fund balance bar: reads a small public snapshot (fund_balance.json, written by
-  // the fund_refresh.py GitHub Action every ~12h) rather than the Grist doc itself --
-  // this widget is bound to the Contributions doc and can't read the Dagupan doc's
-  // Fund_Accountability table directly without a cross-doc API key, which we don't
-  // want embedded in a publicly-hosted page. Runs independently of grist.ready.
-  (function loadFundBalance(){
-    var el = document.getElementById('fund-bar-text');
-    fetch('fund_balance.json').then(function(r){
-      if (!r.ok) throw new Error('snapshot not found');
-      return r.json();
-    }).then(function(d){
-      if (d.contributions_fund_balance == null) throw new Error('missing contributions_fund_balance');
-      var fmted = Number(d.contributions_fund_balance).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-      var dateStr = d.contributions_fund_as_of ? formatSnapshotDate(d.contributions_fund_as_of) : '';
-      el.innerHTML = '💰 Contributions Fund (SSS/PHIC/HDMF) balance: <strong>\u20B1' + fmted + '</strong>' +
-        (dateStr ? ' (as of ' + dateStr + ')' : '') +
-        ' &middot; refreshes automatically about every 12 hours';
-    }).catch(function(){
-      el.textContent = '🔄 Fund balance syncs automatically every 12 hours, and after a manual refresh — no action needed.';
-    });
-  })();
-
-  function formatSnapshotDate(iso){
-    var parts = iso.split('-');
-    var d = new Date(Date.UTC(+parts[0], +parts[1]-1, +parts[2]));
-    return d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit', timeZone:'UTC'});
-  }
 
   grist.ready({requiredAccess: 'full'});
 
@@ -774,13 +746,17 @@
       '<td>' + fmtDate(r.date) + '</td>' +
       '<td>' + escapeHtml(r.office||'') + '</td>' +
       '<td>' + clientLabel + '</td>' +
-      '<td>' + escapeHtml(r.contribution_type||'') + '</td>' +
+      '<td>' + escapeHtml(typeLabel(r.contribution_type)) + '</td>' +
       '<td class="amount">' + fmtAmount(r.amount) + '</td>' +
       '<td>' + escapeHtml(r.payment_method||'') + '</td>' +
       '<td>' + escapeHtml(r.encoded_by||'') + '</td>' +
       '<td>' + sourceBadge + '</td>' +
       '<td><button class="rowbtn" data-id="'+r.id+'">Edit</button></td>' +
       '</tr>';
+  }
+
+  function typeLabel(t){
+    return t === 'Blended/Unspecified' ? 'Others' : (t || '');
   }
 
   function escapeHtml(s){
