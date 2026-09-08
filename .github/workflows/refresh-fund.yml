@@ -8,6 +8,8 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,3 +23,15 @@ jobs:
         env:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
         run: python3 scripts/fund_refresh.py
+
+      - name: Commit and push fund_balance.json if it changed
+        run: |
+          git config user.name "lvvi-fund-refresh-bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet -- fund_balance.json; then
+            echo "fund_balance.json unchanged, nothing to commit."
+          else
+            git add fund_balance.json
+            git commit -m "Auto-update fund_balance.json [skip ci]"
+            git push
+          fi
