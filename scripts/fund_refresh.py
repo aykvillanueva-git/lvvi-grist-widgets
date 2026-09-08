@@ -21,6 +21,7 @@ Logic:
 Requires env var GRIST_API_KEY (a Grist personal API key, injected as a GitHub
 Actions secret -- never written to disk or logged).
 """
+import datetime
 import json
 import os
 import sys
@@ -112,6 +113,41 @@ def process_table(doc_id, table_id, fund_label, date_field, desc_fn):
     return len(debit_ids), len(grandfather_ids)
 
 
+def publish_fund_balance():
+    """
+    Writes fund_balance.json in the current working directory (the repo root
+    when run from the GitHub Actions checkout) with the LIVE current Net Fund
+    Balance from Fund_Accountability. This is the file the entry widgets poll
+    via a plain fetch('fund_balance.json') -- it must be committed back to the
+    repo (see refresh-fund.yml) for GitHub Pages to actually serve the update.
+
+    Previously this file was a one-off static snapshot from 2026-09-07 that
+    nothing ever refreshed -- the widgets' "refreshes automatically every 12
+    hours" banner text was aspirational, not real, until this function and
+    its accompanying workflow step existed.
+    """
+    rows = list_all(DAGUPAN_DOC, "Fund_Accountability")
+    if not rows:
+        print("Fund_Accountability has no rows -- skipping fund_balance.json publish.", file=sys.stderr)
+        return
+    fields = rows[0]["fields"]
+    balance = fields.get("net_balance")
+    if balance is None:
+        print("Fund_Accountability net_balance is empty -- skipping publish.", file=sys.stderr)
+        return
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    snapshot = {
+        "fund_balance": balance,
+        "fund_as_of": now.strftime("%Y-%m-%d"),
+        "last_synced_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with open("fund_balance.json", "w") as f:
+        json.dump(snapshot, f, indent=2)
+        f.write("\n")
+    print(f"fund_balance.json published: {snapshot}")
+
+
 def main():
     tax_paid, tax_grandfathered = process_table(
         TAX_DOC, "Tax_Remittances", "Tax", "date_paid",
@@ -127,6 +163,8 @@ def main():
     print(f"Contribution_Remittances: {contrib_paid} posted as new Fund_Remittance_Payments rows, "
           f"{contrib_grandfathered} historical rows flagged (no payment row).")
     print(f"Total new Fund_Remittance_Payments rows this run: {tax_paid + contrib_paid}")
+
+    publish_fund_balance()
 
 
 if __name__ == "__main__":
