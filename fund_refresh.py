@@ -21,12 +21,12 @@ Logic:
 Requires env var GRIST_API_KEY (a Grist personal API key, injected as a GitHub
 Actions secret -- never written to disk or logged).
 """
+import datetime
 import json
 import os
 import sys
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 
 GRIST_KEY = os.environ["GRIST_API_KEY"]
 BASE = "https://docs.getgrist.com/api/docs"
@@ -113,30 +113,39 @@ def process_table(doc_id, table_id, fund_label, date_field, desc_fn):
     return len(debit_ids), len(grandfather_ids)
 
 
-def write_fund_balance_snapshot():
-    """Writes fund_balance.json (repo root) so the Tax and Contribution Remittance
-    widgets -- each bound to their own Grist doc -- can display the Dagupan doc's
-    Fund_Accountability balance without needing a cross-doc API key embedded in a
-    publicly-hosted page. Harmless to expose publicly: just a balance + date,
-    no credentials.
+def publish_fund_balance():
+    """
+    Writes fund_balance.json in the current working directory (the repo root
+    when run from the GitHub Actions checkout) with the LIVE current Net Fund
+    Balance from Fund_Accountability. This is the file the entry widgets poll
+    via a plain fetch('fund_balance.json') -- it must be committed back to the
+    repo (see refresh-fund.yml) for GitHub Pages to actually serve the update.
 
-    Tax and Contributions are tracked as a single combined fund (one
-    Fund_Accountability row) as of 2026-09, so this writes one balance figure,
-    not a per-fund breakdown."""
+    Previously this file was a one-off static snapshot from 2026-09-07 that
+    nothing ever refreshed -- the widgets' "refreshes automatically every 12
+    hours" banner text was aspirational, not real, until this function and
+    its accompanying workflow step existed.
+    """
     rows = list_all(DAGUPAN_DOC, "Fund_Accountability")
-    snapshot = {}
-    if rows:
-        f = rows[0]["fields"]
-        odate = f.get("opening_balance_date")
-        snapshot["fund_balance"] = f.get("net_balance")
-        snapshot["fund_as_of"] = (
-            datetime.fromtimestamp(odate, tz=timezone.utc).strftime("%Y-%m-%d") if odate else None
-        )
-    snapshot["last_synced_utc"] = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    with open("fund_balance.json", "w") as fh:
-        json.dump(snapshot, fh, indent=2)
-        fh.write("\n")
-    print(f"Wrote fund_balance.json: {snapshot}")
+    if not rows:
+        print("Fund_Accountability has no rows -- skipping fund_balance.json publish.", file=sys.stderr)
+        return
+    fields = rows[0]["fields"]
+    balance = fields.get("net_balance")
+    if balance is None:
+        print("Fund_Accountability net_balance is empty -- skipping publish.", file=sys.stderr)
+        return
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    snapshot = {
+        "fund_balance": balance,
+        "fund_as_of": now.strftime("%Y-%m-%d"),
+        "last_synced_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with open("fund_balance.json", "w") as f:
+        json.dump(snapshot, f, indent=2)
+        f.write("\n")
+    print(f"fund_balance.json published: {snapshot}")
 
 
 def main():
@@ -155,7 +164,17 @@ def main():
           f"{contrib_grandfathered} historical rows flagged (no payment row).")
     print(f"Total new Fund_Remittance_Payments rows this run: {tax_paid + contrib_paid}")
 
-    write_fund_balance_snapshot()
+    publish_fund_balance()
+
+    # Rebuild the per-office Tax & Contribution ledger cache (Tax_Contri_Ledger in the
+    # Dagupan and Pozorrubio docs) that the office search widgets read. Isolated so a
+    # failure here never blocks the fund-balance publish/commit above; it is surfaced
+    # as a GitHub Actions error annotation instead.
+    try:
+        import ledger_cache
+        ledger_cache.refresh()
+    except Exception as e:  # noqa: BLE001
+        print(f"::error::Tax_Contri_Ledger cache refresh failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
