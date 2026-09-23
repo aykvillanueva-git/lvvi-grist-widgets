@@ -166,6 +166,16 @@ def main():
 
     publish_fund_balance()
 
+    # Rebuild the per-office Tax & Contribution ledger cache (Tax_Contri_Ledger in the
+    # Dagupan and Pozorrubio docs) that the office search widgets read. Isolated so a
+    # failure here never blocks the fund-balance publish/commit above; it is surfaced
+    # as a GitHub Actions error annotation instead.
+    try:
+        import ledger_cache
+        ledger_cache.refresh()
+    except Exception as e:  # noqa: BLE001
+        print(f"::error::Tax_Contri_Ledger cache refresh failed: {e}", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()
