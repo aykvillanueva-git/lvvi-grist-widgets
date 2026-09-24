@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVVI Tax &amp; Contribution Transactions</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{
+    --navy:#1c2b3a; --navy-soft:#2e4257; --teal:#1f7a6c; --teal-dark:#155e53;
+    --paper:#f6f5f1; --card:#ffffff; --line:#e2e0d8; --ink:#20242b; --ink-soft:#5b6470;
+    --warn:#b3491f; --warn-bg:#fbe9e1; --ok-bg:#e9f3ef; --success-text:#155e53;
+    --input-bg:#ffffff; --divider:#f0efe9; --chip-bg:#eee; --hover-bg:#fafaf7; --pill-bg:#eef1f4;
+    --coll-bg:#e3f1ec; --coll-ink:#155e53; --remit-bg:#fde9d0; --remit-ink:#8a5a1e;
+    --shadow:rgba(20,30,40,.14); --radius:8px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Consolas","Menlo",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#5b9bd5; --navy-soft:#4a86b8; --teal:#2f9c88; --teal-dark:#3fb39e; --success-text:#7ee0c9;
+      --paper:#1c1e21; --card:#26282c; --line:#40434a; --ink:#eceef0; --ink-soft:#9a9da2;
+      --warn:#e2825a; --warn-bg:#4a2a1f; --ok-bg:#1f3d36; --input-bg:#1c1e21; --divider:#34373c;
+      --chip-bg:#33363b; --hover-bg:#303338; --pill-bg:#26313a;
+      --coll-bg:#1f3d36; --coll-ink:#7ee0c9; --remit-bg:#4a3520; --remit-ink:#f0c48a;
+      --shadow:rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.4;padding:14px;}
+  h1{font-size:16px;font-weight:700;color:var(--navy);margin:0 0 2px 0;}
+  .subtitle{color:var(--ink-soft);font-size:12px;margin:0 0 12px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--navy-soft);
+    margin:0 0 10px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+  input[type=text],input[type=date],select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;
+    font-size:14px;font-family:var(--font);background:var(--input-bg);color:var(--ink);}
+  input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  .search-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+  .search-row .field{flex:1 1 120px;position:relative;}
+  .search-row .field.wide{flex:2.5 1 220px;}
+  button{font-family:var(--font);font-size:13px;font-weight:600;border-radius:6px;border:1px solid var(--line);
+    padding:7px 12px;cursor:pointer;background:transparent;color:var(--ink-soft);}
+  button:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .client-menu{position:absolute;z-index:20;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;box-shadow:0 6px 18px var(--shadow);max-height:240px;overflow-y:auto;margin-top:2px;}
+  .client-opt{padding:7px 9px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--divider);}
+  .client-opt:last-child{border-bottom:none;}
+  .client-opt:hover,.client-opt.active{background:var(--ok-bg);}
+  .client-opt .code{color:var(--ink-soft);font-family:var(--mono);font-size:11px;}
+  .selected-chip{display:none;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;border-radius:6px;
+    background:var(--ok-bg);font-size:13px;}
+  .selected-chip.show{display:flex;}
+  .selected-chip strong{flex:1;}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+  .tile .k{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .tile .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px;}
+  .tile .s{font-size:11px;color:var(--ink-soft);}
+  .v.pos{color:var(--warn);} .v.neg{color:var(--navy);}
+  .results-meta{font-size:12px;color:var(--ink-soft);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .results-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:6px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);
+    border-bottom:1px solid var(--line);padding:6px 8px;position:sticky;top:0;background:var(--card);white-space:nowrap;}
+  thead th.num{text-align:right;}
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--divider);vertical-align:top;}
+  tbody tr:hover{background:var(--hover-bg);}
+  tbody tr.clickable{cursor:pointer;}
+  tbody tr.month-sub td{background:var(--hover-bg);font-weight:600;font-size:12px;color:var(--ink-soft);}
+  tfoot td{padding:8px;font-weight:700;border-top:2px solid var(--line);background:var(--card);position:sticky;bottom:0;}
+  .amount{font-family:var(--mono);text-align:right;white-space:nowrap;}
+  .pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+  .pill-coll{background:var(--coll-bg);color:var(--coll-ink);}
+  .pill-remit{background:var(--remit-bg);color:var(--remit-ink);}
+  .pill-plain{background:var(--pill-bg);color:var(--navy-soft);}
+  .pill-tax{background:#e4dcf7;color:#5b3fa0;}
+  .pill-con{background:#dcecf7;color:#1f5f8b;}
+  @media (prefers-color-scheme: dark){.pill-tax{background:#35294f;color:#c9b8f5;}.pill-con{background:#1f3547;color:#9fd0f2;}}
+  .tile .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:12px;}
+  .sync{font-size:11px;color:var(--ink-soft);}
+  .muted{color:var(--ink-soft);}
+  .empty{padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+  .err{color:var(--warn);font-size:12px;}
+  td.taxpayer{font-weight:600;white-space:nowrap;}
+</style>
+</head>
+<body>
+  <h1>Tax &amp; Contribution Transactions — <span id="office-name">Office</span></h1>
+  <p class="subtitle">Search this office's clients' tax and SSS / PHIC / HDMF collections and remittances (cash basis), including items processed through the other office. <span class="sync" id="sync"></span></p>
+
+  <div class="card">
+    <div class="card-title"><span>Search &amp; Filter</span><button id="btn-reset" type="button">Reset</button></div>
+    <div class="search-row">
+      <div class="field wide">
+        <label for="s-client">Client / Code</label>
+        <input type="text" id="s-client" placeholder="Search by client name or code…" autocomplete="off">
+        <div class="client-menu" id="client-menu" style="display:none"></div>
+      </div>
+      <div class="field">
+        <label for="s-cat">Category</label>
+        <select id="s-cat"><option value="">All</option><option value="T">Tax</option><option value="S">Contributions</option></select>
+      </div>
+      <div class="field">
+        <label for="s-type">Transaction</label>
+        <select id="s-type"><option value="">All</option><option value="C">Collections</option><option value="R">Remittances</option></select>
+      </div>
+      <div class="field">
+        <label for="s-form">Form / Contribution</label>
+        <select id="s-form"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-chan">Channel</label>
+        <select id="s-chan"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-via">Processed via</label>
+        <select id="s-via"><option value="">Any office</option><option value="here">This office</option><option value="other">Other office</option></select>
+      </div>
+      <div class="field">
+        <label for="s-month">Month</label>
+        <select id="s-month"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-from">From</label>
+        <input type="date" id="s-from">
+      </div>
+      <div class="field">
+        <label for="s-to">To</label>
+        <input type="date" id="s-to">
+      </div>
+    </div>
+    <div class="selected-chip" id="sel-chip">
+      <span class="muted">Client:</span><strong id="sel-name"></strong>
+      <button type="button" id="btn-clear-client">Clear client</button>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <div class="results-meta"><span id="meta"></span><span id="meta-right" class="muted"></span></div>
+    <div class="results-scroll" id="results"><div class="empty">Loading…</div></div>
+  </div>
+
+<script>
+(function(){
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var CAT = {T:'Tax', S:'Contribution'};
+  var state = { office: '', clients: [], byKey: {}, txns: [], selectedKey: null, menuIndex: -1, menuItems: [], loaded: false };
+  var $ = function(id){ return document.getElementById(id); };
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function peso(n){ n = Math.round(n || 0); var s = Math.abs(n).toLocaleString('en-US'); return n < 0 ? '(' + s + ')' : s; }
+  function fmtDate(iso){
+    if (!iso) return '—';
+    var p = iso.split('-');
+    return new Date(Date.UTC(+p[0], +p[1]-1, +p[2])).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit',timeZone:'UTC'});
+  }
+  function monthLabel(key){ if (!key) return 'No date'; var p = key.split('-'); return MONTHS[+p[1]-1] + '-' + p[0].slice(2); }
+  function typeLabel(t){ return t === 'Blended/Unspecified' ? 'Blended' : t; }
+  function dash(v){ return v ? esc(v) : '<span class="muted">—</span>'; }
+
+  // ---------- load: one Tax_Contri_Ledger row per client, transactions packed in txns_json ----------
+  grist.ready({requiredAccess: 'read table'});
+  grist.onRecords(function(records){
+    state.clients = []; state.byKey = {}; state.txns = [];
+    var synced = '', office = '';
+    records.forEach(function(r){
+      var payload;
+      try { payload = JSON.parse(r.txns_json || '{}'); } catch(e){ payload = {}; }
+      var c = { key: r.ledger_key || ('row' + r.id), rowId: r.id, name: r.client_name || '(no client)',
+                code: payload.code || '', linked: !!r.client };
+      c.search = (c.code + ' ' + c.name).toLowerCase();
+      state.clients.push(c); state.byKey[c.key] = c;
+      if (payload.office) office = payload.office;
+      if (r.synced_at && r.synced_at > synced) synced = r.synced_at;
+      var members = {};
+      (payload.txns || []).forEach(function(t){ t.ck = c.key; state.txns.push(t); if (t.n) members[t.n] = true; });
+      c.members = Object.keys(members).sort();
+      if (c.members.length) c.search += ' ' + c.members.join(' ').toLowerCase();
+    });
+    state.office = office;
+    $('office-name').textContent = office || 'Office';
+    $('sync').textContent = synced ? '· Data as of ' + synced + ' (auto-refreshes about every 12 hours).' :
+      '· No data yet — the cache fills on the next scheduled refresh.';
+    state.clients.sort(function(a,b){ return a.name.localeCompare(b.name); });
+    buildDropdowns();
+    state.loaded = true;
+    if (state.selectedKey && !state.byKey[state.selectedKey]) state.selectedKey = null;
+    render();
+  });
+  // Follow the cursor if the widget is linked to / placed beside a Tax_Contri_Ledger table.
+  // Open with NO client selected: the first cursor position Grist reports on load is
+  // ignored; only an actual cursor MOVE to a different row selects that client.
+  var lastCursorKey;  // undefined until the initial cursor report
+  grist.onRecord(function(r){
+    var k = r && r.ledger_key;
+    if (lastCursorKey === undefined){ lastCursorKey = k || null; return; }
+    if (!k || k === lastCursorKey) return;
+    lastCursorKey = k;
+    if (state.byKey[k] && k !== state.selectedKey) selectClient(k);
+  });
+
+  function buildDropdowns(){
+    var tax = {}, con = {}, chans = {}, months = {};
+    state.txns.forEach(function(t){
+      if (t.t){ (t.g === 'T' ? tax : con)[t.t] = true; }
+      if (t.ch) chans[t.ch] = true;
+      if (t.d) months[t.d.slice(0,7)] = true;
+    });
+    var keep = { f: $('s-form').value, c: $('s-chan').value, m: $('s-month').value };
+    function opts(obj, lab){ return Object.keys(obj).sort().map(function(k){
+      return '<option value="'+esc(k)+'">'+esc(lab ? lab(k) : k)+'</option>'; }).join(''); }
+    $('s-form').innerHTML = '<option value="">All</option>' +
+      '<optgroup label="Tax forms">' + opts(tax) + '</optgroup>' +
+      '<optgroup label="Contributions">' + opts(con, typeLabel) + '</optgroup>';
+    $('s-chan').innerHTML = '<option value="">All</option>' + opts(chans);
+    $('s-month').innerHTML = '<option value="">All</option>' + Object.keys(months).sort().reverse().map(function(m){
+      return '<option value="'+m+'">'+monthLabel(m)+'</option>'; }).join('');
+    $('s-form').value = keep.f; $('s-chan').value = keep.c; $('s-month').value = keep.m;
+  }
+
+  // ---------- filtering ----------
+  function filters(){
+    return { cat: $('s-cat').value, type: $('s-type').value, form: $('s-form').value, chan: $('s-chan').value,
+             month: $('s-month').value, from: $('s-from').value, to: $('s-to').value,
+             via: $('s-via').value, text: $('s-client').value.trim().toLowerCase() };
+  }
+  function passes(t, f){
+    if (f.cat && t.g !== f.cat) return false;
+    if (f.type && t.k !== f.type) return false;
+    if (f.form && t.t !== f.form) return false;
+    if (f.chan && t.ch !== f.chan) return false;
+    if (f.via === 'here' && isOther(t)) return false;
+    if (f.via === 'other' && !isOther(t)) return false;
+    if (f.month && (!t.d || t.d.slice(0,7) !== f.month)) return false;
+    if (f.from && (!t.d || t.d < f.from)) return false;
+    if (f.to && (!t.d || t.d > f.to)) return false;
+    if (state.selectedKey){ if (t.ck !== state.selectedKey) return false; }
+    else if (f.text){ var c = state.byKey[t.ck]; if (!c || c.search.indexOf(f.text) === -1) return false; }
+    return true;
+  }
+
+  function isOther(t){ return !!(t.o && state.office && t.o !== state.office); }
+
+  function sums(rows){
+    var s = {TC:0, TR:0, SC:0, SR:0, n:0};
+    rows.forEach(function(t){ s[t.g + t.k] += t.a; s.n++; });
+    s.tv = s.TC - s.TR; s.sv = s.SC - s.SR; s.v = s.tv + s.sv;
+    return s;
+  }
+
+  // ---------- render ----------
+  function render(){
+    if (!state.loaded) return;
+    var f = filters();
+    var rows = state.txns.filter(function(t){ return passes(t, f); });
+    renderTiles(rows);
+    if (state.selectedKey) renderLedger(rows); else renderClientList(rows);
+  }
+
+  function vcls(v){ v = Math.round(v); return v > 0 ? 'pos' : (v < 0 ? 'neg' : ''); }
+  function renderTiles(rows){
+    var s = sums(rows);
+    function block(title, c, r, v){
+      return '<div class="tile"><div class="k">'+title+'</div><div class="v '+vcls(v)+'">₱'+peso(v)+'</div>' +
+        '<div class="row"><span class="muted">Collected</span><span>'+peso(c)+'</span></div>' +
+        '<div class="row"><span class="muted">Remitted</span><span>'+peso(r)+'</span></div></div>';
+    }
+    $('tiles').innerHTML =
+      block('Tax variance', s.TC, s.TR, s.tv) +
+      block('Contribution variance', s.SC, s.SR, s.sv) +
+      '<div class="tile"><div class="k">Combined variance</div><div class="v '+vcls(s.v)+'">₱'+peso(s.v)+'</div>' +
+      '<div class="s">'+(Math.round(s.v) > 0 ? 'collected, not yet shown remitted' : (Math.round(s.v) < 0 ? 'remitted more than collected' : 'balanced')) +
+      ' · '+s.n+' transaction'+(s.n===1?'':'s')+'</div></div>';
+  }
+
+  function renderClientList(rows){
+    var by = {};
+    rows.forEach(function(t){
+      var b = by[t.ck] || (by[t.ck] = {key:t.ck, rows:[], last:''});
+      b.rows.push(t); if ((t.d||'') > b.last) b.last = t.d || '';
+    });
+    var list = Object.keys(by).map(function(k){ var b = by[k]; b.s = sums(b.rows); return b; });
+    list.sort(function(a,b){ return b.s.v - a.s.v; });
+    $('meta').textContent = list.length + ' client' + (list.length===1?'':'s') + ' · ' + rows.length + ' transactions';
+    $('meta-right').textContent = 'Ranked by combined variance, highest first · click a client to open';
+    if (!list.length){ $('results').innerHTML = '<div class="empty">No transactions match these filters.</div>'; return; }
+    var html = '<table><thead><tr><th>Client</th><th class="num">Txns</th><th>Last activity</th>' +
+      '<th class="num">Tax variance</th><th class="num">Contri variance</th><th class="num">Combined</th></tr></thead><tbody>';
+    list.forEach(function(b){
+      var c = state.byKey[b.key];
+      html += '<tr class="clickable" data-key="'+esc(b.key)+'"><td>'+esc(c.name) +
+        (c.code ? ' <span class="muted" style="font-family:var(--mono);font-size:11px">'+esc(c.code)+'</span>' : '') +
+        (c.linked ? '' : ' <em class="muted">(no office client link)</em>') + '</td>' +
+        '<td class="amount">'+b.rows.length+(b.rows.filter(isOther).length ? ' <span class="muted" title="processed via other office">('+b.rows.filter(isOther).length+' via other)</span>' : '')+'</td><td>'+fmtDate(b.last)+'</td>' +
+        '<td class="amount">'+peso(b.s.tv)+'</td><td class="amount">'+peso(b.s.sv)+'</td>' +
+        '<td class="amount"><strong>'+peso(b.s.v)+'</strong></td></tr>';
+    });
+    $('results').innerHTML = html + '</tbody></table>';
+  }
+
+  function renderLedger(rows){
+    var c = state.byKey[state.selectedKey];
+    rows = rows.slice().sort(function(a,b){
+      return (a.d||'').localeCompare(b.d||'') || a.g.localeCompare(b.g) || a.k.localeCompare(b.k) || a.id - b.id;
+    });
+    $('meta').textContent = rows.length + ' transaction' + (rows.length===1?'':'s') + ' for ' + c.name +
+      (c.members && c.members.length ? ' (group, incl. ' + c.members.length + ' member taxpayer' + (c.members.length===1?'':'s') + ')' : '');
+    $('meta-right').textContent = 'Oldest first · running variance = all collected − all remitted to date';
+    if (!rows.length){ $('results').innerHTML = '<div class="empty">No transactions for this client match these filters.</div>'; return; }
+    var run = 0, cur = null, mc = 0, mr = 0;
+    var html = '<table><thead><tr><th>Date</th><th>Client / Taxpayer</th><th>Category</th><th>Type</th><th>Form / Contri</th><th>Return period</th>' +
+      '<th>Via</th><th>Channel</th><th>Method</th><th>Encoder</th><th class="num">Collected</th><th class="num">Remitted</th><th class="num">Running variance</th></tr></thead><tbody>';
+    function flush(){
+      if (cur === null) return;
+      html += '<tr class="month-sub"><td colspan="10">'+monthLabel(cur)+' subtotal · variance '+peso(mc-mr)+'</td>' +
+        '<td class="amount">'+peso(mc)+'</td><td class="amount">'+peso(mr)+'</td><td class="amount">'+peso(run)+'</td></tr>';
+    }
+    rows.forEach(function(t){
+      var mk = t.d ? t.d.slice(0,7) : '';
+      if (mk !== cur){ flush(); cur = mk; mc = 0; mr = 0; }
+      if (t.k === 'C'){ run += t.a; mc += t.a; } else { run -= t.a; mr += t.a; }
+      html += '<tr><td>'+fmtDate(t.d)+'</td>' +
+        '<td class="taxpayer">'+esc(t.n || c.name)+'</td>' +
+        '<td><span class="pill '+(t.g==='T'?'pill-tax':'pill-con')+'">'+CAT[t.g]+'</span></td>' +
+        '<td>'+(t.k==='C' ? '<span class="pill pill-coll">Collection</span>' : '<span class="pill pill-remit">Remittance</span>')+'</td>' +
+        '<td>'+(t.t ? '<span class="pill pill-plain">'+esc(typeLabel(t.t))+'</span>' : '<span class="muted">—</span>')+'</td>' +
+        '<td>'+(t.p ? fmtDate(t.p) : '<span class="muted">—</span>')+'</td>' +
+        '<td>'+(isOther(t) ? '<span class="pill pill-remit">'+esc(t.o)+'</span>' : '<span class="muted">'+esc(t.o||'—')+'</span>')+'</td>' +
+        '<td>'+dash(t.ch)+'</td><td>'+dash(t.m)+'</td><td>'+dash(t.e)+'</td>' +
+        '<td class="amount">'+(t.k==='C' ? peso(t.a) : '')+'</td>' +
+        '<td class="amount">'+(t.k==='R' ? peso(t.a) : '')+'</td>' +
+        '<td class="amount">'+peso(run)+'</td></tr>';
+    });
+    flush();
+    var s = sums(rows);
+    html += '</tbody><tfoot><tr><td colspan="10">Total · Tax '+peso(s.tv)+' · Contributions '+peso(s.sv)+'</td>' +
+      '<td class="amount">'+peso(s.TC+s.SC)+'</td><td class="amount">'+peso(s.TR+s.SR)+'</td><td class="amount">'+peso(s.v)+'</td></tr></tfoot></table>';
+    $('results').innerHTML = html;
+  }
+
+  // ---------- client selection ----------
+  function selectClient(key){
+    var c = state.byKey[key]; if (!c) return;
+    state.selectedKey = key;
+    $('s-client').value = c.name;
+    $('sel-name').textContent = c.name + (c.code ? ' (' + c.code + ')' : '');
+    $('sel-chip').classList.add('show');
+    hideMenu(); render();
+  }
+  function clearClient(){ state.selectedKey = null; $('s-client').value = ''; $('sel-chip').classList.remove('show'); render(); }
+  function showMenu(){
+    var q = $('s-client').value.trim().toLowerCase();
+    if (!q){ hideMenu(); return; }
+    var items = state.clients.filter(function(c){ return c.search.indexOf(q) !== -1; }).slice(0, 30);
+    state.menuItems = items; state.menuIndex = -1;
+    if (!items.length){ hideMenu(); return; }
+    $('client-menu').innerHTML = items.map(function(c, i){
+      return '<div class="client-opt" data-i="'+i+'">'+esc(c.name)+(c.code ? ' <span class="code">'+esc(c.code)+'</span>' : '')+'</div>';
+    }).join('');
+    $('client-menu').style.display = 'block';
+  }
+  function hideMenu(){ $('client-menu').style.display = 'none'; state.menuIndex = -1; }
+  function highlight(){
+    var opts = $('client-menu').querySelectorAll('.client-opt');
+    opts.forEach(function(o, i){ o.classList.toggle('active', i === state.menuIndex); });
+    if (opts[state.menuIndex]) opts[state.menuIndex].scrollIntoView({block:'nearest'});
+  }
+  $('s-client').addEventListener('input', function(){
+    if (state.selectedKey){ state.selectedKey = null; $('sel-chip').classList.remove('show'); }
+    showMenu(); render();
+  });
+  $('s-client').addEventListener('keydown', function(e){
+    var n = state.menuItems.length;
+    if ($('client-menu').style.display === 'none' || !n) return;
+    if (e.key === 'ArrowDown'){ state.menuIndex = (state.menuIndex + 1) % n; highlight(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ state.menuIndex = (state.menuIndex - 1 + n) % n; highlight(); e.preventDefault(); }
+    else if (e.key === 'Enter'){ if (state.menuIndex >= 0) selectClient(state.menuItems[state.menuIndex].key); e.preventDefault(); }
+    else if (e.key === 'Escape'){ hideMenu(); }
+  });
+  $('client-menu').addEventListener('mousedown', function(e){
+    var o = e.target.closest('.client-opt'); if (!o) return;
+    e.preventDefault(); selectClient(state.menuItems[+o.getAttribute('data-i')].key);
+  });
+  $('s-client').addEventListener('blur', function(){ setTimeout(hideMenu, 150); });
+  $('results').addEventListener('click', function(e){
+    var tr = e.target.closest('tr.clickable'); if (!tr) return;
+    selectClient(tr.getAttribute('data-key'));
+  });
+  var FILTER_IDS = ['s-cat','s-type','s-form','s-chan','s-via','s-month','s-from','s-to'];
+  FILTER_IDS.forEach(function(id){ $(id).addEventListener('change', render); });
+  $('btn-clear-client').addEventListener('click', clearClient);
+  $('btn-reset').addEventListener('click', function(){ FILTER_IDS.forEach(function(id){ $(id).value = ''; }); clearClient(); });
+})();
+</script>
+</body>
+</html>
