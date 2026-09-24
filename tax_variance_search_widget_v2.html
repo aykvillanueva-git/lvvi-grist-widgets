@@ -180,7 +180,10 @@
     grist.docApi.fetchTable('Tax_Remittances')
   ]).then(function(res){
     var cl = res[0], tc = res[1], tr = res[2], i;
+    // In-house / affiliated units (LVVI, IV Cafe, A2Z) are excluded from the variance views.
+    var inHouse = {};
     for (i=0;i<cl.id.length;i++){
+      if (col(cl,'entity_type',i) === 'Affiliated Business Unit'){ inHouse[cl.id[i]] = true; continue; }
       var c = { id: cl.id[i], code: col(cl,'A',i) || '', name: col(cl,'client_name',i) || '',
                 trade: col(cl,'tradename',i) || '', office: col(cl,'office',i) || '' };
       c.label = c.name || c.code || ('Client #' + c.id);
@@ -199,6 +202,7 @@
         encoder: col(tr,'encoded_by',i) || '', source: col(tr,'source',i) || '',
         rawCode: col(tr,'client_code_raw',i) || '' });
     }
+    state.txns = state.txns.filter(function(t){ return !inHouse[t.client]; });
     buildDropdowns();
     render();
     // Follow the selected row in the linked "Per Client Total" table.

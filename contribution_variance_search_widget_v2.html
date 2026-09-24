@@ -186,7 +186,10 @@
     grist.docApi.fetchTable('Contribution_Remittances')
   ]).then(function(res){
     var cl = res[0], cc = res[1], cr = res[2], i;
+    // In-house / affiliated units (LVVI, IV Cafe, A2Z) are excluded from the variance views.
+    var inHouse = {};
     for (i=0;i<cl.id.length;i++){
+      if (col(cl,'entity_type',i) === 'Affiliated Business Unit'){ inHouse[cl.id[i]] = true; continue; }
       var c = { id: cl.id[i], code: col(cl,'A',i) || '', name: col(cl,'client_name',i) || '',
                 trade: col(cl,'tradename',i) || '', office: col(cl,'office',i) || '' };
       c.label = c.name || c.code || ('Client #' + c.id);
@@ -213,6 +216,7 @@
         encoder: col(cr,'encoded_by',i) || '', source: col(cr,'source',i) || '',
         rawCode: col(cr,'client_code_raw',i) || '' });
     }
+    state.txns = state.txns.filter(function(t){ return !inHouse[t.client]; });
     buildDropdowns();
     render();
     // Follow the selected row in the linked "Per Client Total" table.
