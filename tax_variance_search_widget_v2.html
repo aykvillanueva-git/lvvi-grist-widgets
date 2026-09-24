@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVVI Tax Variance — Search &amp; Filter</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{
+    --navy:#1c2b3a; --navy-soft:#2e4257; --teal:#1f7a6c; --teal-dark:#155e53;
+    --paper:#f6f5f1; --card:#ffffff; --line:#e2e0d8; --ink:#20242b; --ink-soft:#5b6470;
+    --warn:#b3491f; --warn-bg:#fbe9e1; --ok-bg:#e9f3ef; --success-text:#155e53;
+    --input-bg:#ffffff; --divider:#f0efe9; --chip-bg:#eee; --hover-bg:#fafaf7; --pill-bg:#eef1f4;
+    --coll-bg:#e3f1ec; --coll-ink:#155e53; --remit-bg:#fde9d0; --remit-ink:#8a5a1e;
+    --shadow:rgba(20,30,40,.14); --radius:8px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Consolas","Menlo",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#5b9bd5; --navy-soft:#4a86b8; --teal:#2f9c88; --teal-dark:#3fb39e; --success-text:#7ee0c9;
+      --paper:#1c1e21; --card:#26282c; --line:#40434a; --ink:#eceef0; --ink-soft:#9a9da2;
+      --warn:#e2825a; --warn-bg:#4a2a1f; --ok-bg:#1f3d36; --input-bg:#1c1e21; --divider:#34373c;
+      --chip-bg:#33363b; --hover-bg:#303338; --pill-bg:#26313a;
+      --coll-bg:#1f3d36; --coll-ink:#7ee0c9; --remit-bg:#4a3520; --remit-ink:#f0c48a;
+      --shadow:rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.4;padding:14px;}
+  h1{font-size:16px;font-weight:700;color:var(--navy);margin:0 0 2px 0;}
+  .subtitle{color:var(--ink-soft);font-size:12px;margin:0 0 12px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--navy-soft);
+    margin:0 0 10px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+  input[type=text],input[type=date],select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;
+    font-size:14px;font-family:var(--font);background:var(--input-bg);color:var(--ink);}
+  input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  .search-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+  .search-row .field{flex:1 1 120px;position:relative;}
+  .search-row .field.wide{flex:2.5 1 220px;}
+  button{font-family:var(--font);font-size:13px;font-weight:600;border-radius:6px;border:1px solid var(--line);
+    padding:7px 12px;cursor:pointer;background:transparent;color:var(--ink-soft);}
+  button:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .client-menu{position:absolute;z-index:20;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;box-shadow:0 6px 18px var(--shadow);max-height:240px;overflow-y:auto;margin-top:2px;}
+  .client-opt{padding:7px 9px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--divider);}
+  .client-opt:last-child{border-bottom:none;}
+  .client-opt:hover,.client-opt.active{background:var(--ok-bg);}
+  .client-opt .code{color:var(--ink-soft);font-family:var(--mono);font-size:11px;}
+  .selected-chip{display:none;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;border-radius:6px;
+    background:var(--ok-bg);font-size:13px;}
+  .selected-chip.show{display:flex;}
+  .selected-chip strong{flex:1;}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+  .tile .k{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .tile .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px;}
+  .tile .s{font-size:11px;color:var(--ink-soft);}
+  .v.pos{color:var(--warn);} .v.neg{color:var(--navy);}
+  .results-meta{font-size:12px;color:var(--ink-soft);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .results-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:6px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);
+    border-bottom:1px solid var(--line);padding:6px 8px;position:sticky;top:0;background:var(--card);white-space:nowrap;}
+  thead th.num{text-align:right;}
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--divider);vertical-align:top;}
+  tbody tr:hover{background:var(--hover-bg);}
+  tbody tr.clickable{cursor:pointer;}
+  tbody tr.month-sub td{background:var(--hover-bg);font-weight:600;font-size:12px;color:var(--ink-soft);}
+  tfoot td{padding:8px;font-weight:700;border-top:2px solid var(--line);background:var(--card);position:sticky;bottom:0;}
+  .amount{font-family:var(--mono);text-align:right;white-space:nowrap;}
+  .pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+  .pill-coll{background:var(--coll-bg);color:var(--coll-ink);}
+  .pill-remit{background:var(--remit-bg);color:var(--remit-ink);}
+  .pill-plain{background:var(--pill-bg);color:var(--navy-soft);}
+  .muted{color:var(--ink-soft);}
+  .empty{padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+  .err{color:var(--warn);font-size:12px;}
+</style>
+</head>
+<body>
+  <h1>Tax Variance — Search &amp; Filter</h1>
+  <p class="subtitle">Find a client's tax collections and remittances (cash basis: collection date vs. date paid). Click a row in the table below, or search here.</p>
+
+  <div class="card">
+    <div class="card-title"><span>Search &amp; Filter</span><button id="btn-reset" type="button">Reset</button></div>
+    <div class="search-row">
+      <div class="field wide">
+        <label for="s-client">Client / Code</label>
+        <input type="text" id="s-client" placeholder="Search by client name or code…" autocomplete="off">
+        <div class="client-menu" id="client-menu" style="display:none"></div>
+      </div>
+      <div class="field">
+        <label for="s-office">Office</label>
+        <select id="s-office"><option value="">All</option><option>Dagupan</option><option>Pozorrubio</option></select>
+      </div>
+      <div class="field">
+        <label for="s-type">Transaction</label>
+        <select id="s-type"><option value="">All</option><option value="C">Collections</option><option value="R">Remittances</option></select>
+      </div>
+      <div class="field">
+        <label for="s-form">BIR Form</label>
+        <select id="s-form"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-month">Month</label>
+        <select id="s-month"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-from">From</label>
+        <input type="date" id="s-from">
+      </div>
+      <div class="field">
+        <label for="s-to">To</label>
+        <input type="date" id="s-to">
+      </div>
+    </div>
+    <div class="selected-chip" id="sel-chip">
+      <span class="muted">Client:</span><strong id="sel-name"></strong>
+      <button type="button" id="btn-clear-client">Clear client</button>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <div class="results-meta"><span id="meta"></span><span id="meta-right" class="muted"></span></div>
+    <div class="results-scroll" id="results"><div class="empty">Loading…</div></div>
+  </div>
+
+<script>
+(function(){
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var state = {
+    clients: [], clientById: {},
+    txns: [],               // unified: {kind:'C'|'R', date, office, client, amount, form, channel, period, encoder, source}
+    selectedClientId: null,
+    menuIndex: -1, menuItems: []
+  };
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ---------- helpers ----------
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function peso(n){
+    n = Math.round(n || 0);
+    var s = Math.abs(n).toLocaleString('en-US');
+    return n < 0 ? '(' + s + ')' : s;
+  }
+  function fmtDate(ts){
+    if (!ts) return '—';
+    return new Date(ts*1000).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit',timeZone:'UTC'});
+  }
+  function monthKey(ts){
+    if (!ts) return '';
+    var d = new Date(ts*1000);
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0');
+  }
+  function monthLabel(key){
+    if (!key) return 'No date';
+    var p = key.split('-');
+    return MONTHS[+p[1]-1] + '-' + p[0].slice(2);
+  }
+  function inputToTs(str){
+    if (!str) return null;
+    var p = str.split('-');
+    return Math.floor(Date.UTC(+p[0], +p[1]-1, +p[2]) / 1000);
+  }
+  function col(data, name, i){ return data[name] ? data[name][i] : null; }
+
+  // ---------- load ----------
+  grist.ready({requiredAccess: 'full'});
+
+  Promise.all([
+    grist.docApi.fetchTable('Clients'),
+    grist.docApi.fetchTable('Tax_Collections'),
+    grist.docApi.fetchTable('Tax_Remittances')
+  ]).then(function(res){
+    var cl = res[0], tc = res[1], tr = res[2], i;
+    for (i=0;i<cl.id.length;i++){
+      var c = { id: cl.id[i], code: col(cl,'A',i) || '', name: col(cl,'client_name',i) || '',
+                trade: col(cl,'tradename',i) || '', office: col(cl,'office',i) || '' };
+      c.label = c.name || c.code || ('Client #' + c.id);
+      c.search = (c.code + ' ' + c.name + ' ' + c.trade).toLowerCase();
+      state.clients.push(c); state.clientById[c.id] = c;
+    }
+    for (i=0;i<tc.id.length;i++){
+      state.txns.push({ kind:'C', id: tc.id[i], date: col(tc,'date',i), office: col(tc,'office',i) || '',
+        client: col(tc,'client',i) || 0, amount: col(tc,'amount',i) || 0, form:'', channel:'', period:null,
+        encoder:'', source: col(tc,'source',i) || '' });
+    }
+    for (i=0;i<tr.id.length;i++){
+      state.txns.push({ kind:'R', id: tr.id[i], date: col(tr,'date_paid',i), office: col(tr,'office',i) || '',
+        client: col(tr,'client',i) || 0, amount: col(tr,'amount',i) || 0, form: col(tr,'form',i) || '',
+        channel: col(tr,'remittance_channel',i) || '', period: col(tr,'return_period',i),
+        encoder: col(tr,'encoded_by',i) || '', source: col(tr,'source',i) || '',
+        rawCode: col(tr,'client_code_raw',i) || '' });
+    }
+    buildDropdowns();
+    render();
+    // Follow the selected row in the linked "Per Client Total" table.
+    grist.onRecord(function(rec){
+      if (!rec || !rec.client) return;
+      var cid = typeof rec.client === 'object' ? rec.client.id || rec.client.rowId : rec.client;
+      if (cid && cid !== state.selectedClientId) selectClient(cid);
+    });
+  }).catch(function(err){
+    $('results').innerHTML = '<div class="empty err">Could not load data: ' + esc(err.message) +
+      '. Make sure this widget has Full document access.</div>';
+  });
+
+  function buildDropdowns(){
+    var forms = {}, months = {};
+    state.txns.forEach(function(t){
+      if (t.form) forms[t.form.trim()] = true;
+      var mk = monthKey(t.date); if (mk) months[mk] = true;
+    });
+    $('s-form').innerHTML = '<option value="">All</option>' + Object.keys(forms).sort().map(function(f){
+      return '<option value="'+esc(f)+'">'+esc(f)+'</option>'; }).join('');
+    $('s-month').innerHTML = '<option value="">All</option>' + Object.keys(months).sort().reverse().map(function(m){
+      return '<option value="'+m+'">'+monthLabel(m)+'</option>'; }).join('');
+  }
+
+  // ---------- filtering ----------
+  function filters(){
+    return { office: $('s-office').value, type: $('s-type').value, form: $('s-form').value,
+             month: $('s-month').value, from: inputToTs($('s-from').value), to: inputToTs($('s-to').value),
+             text: $('s-client').value.trim().toLowerCase() };
+  }
+  function passes(t, f, ignoreClient){
+    if (f.office && t.office !== f.office) return false;
+    if (f.type && t.kind !== f.type) return false;
+    if (f.form && (t.kind !== 'R' || t.form.trim() !== f.form)) return false;
+    if (f.month && monthKey(t.date) !== f.month) return false;
+    if (f.from && (!t.date || t.date < f.from)) return false;
+    if (f.to && (!t.date || t.date > f.to)) return false;
+    if (!ignoreClient){
+      if (state.selectedClientId){
+        if (t.client !== state.selectedClientId) return false;
+      } else if (f.text){
+        var c = state.clientById[t.client];
+        var hay = (c ? c.search : '') + ' ' + (t.rawCode || '').toLowerCase();
+        if (hay.indexOf(f.text) === -1) return false;
+      }
+    }
+    return true;
+  }
+
+  // ---------- render ----------
+  function render(){
+    var f = filters();
+    var rows = state.txns.filter(function(t){ return passes(t, f, false); });
+    renderTiles(rows);
+    if (state.selectedClientId) renderLedger(rows); else renderClientList(rows);
+  }
+
+  function totals(rows){
+    var c=0, r=0, nc=0, nr=0;
+    rows.forEach(function(t){ if (t.kind==='C'){c+=t.amount;nc++;} else {r+=t.amount;nr++;} });
+    return {c:c, r:r, v:c-r, nc:nc, nr:nr};
+  }
+
+  function renderTiles(rows){
+    var t = totals(rows);
+    var vcls = Math.round(t.v) > 0 ? 'pos' : (Math.round(t.v) < 0 ? 'neg' : '');
+    $('tiles').innerHTML =
+      tile('Tax Collected', peso(t.c), t.nc + ' collection' + (t.nc===1?'':'s'), '') +
+      tile('Tax Remitted', peso(t.r), t.nr + ' remittance' + (t.nr===1?'':'s'), '') +
+      tile('Variance (Collected − Remitted)', peso(t.v),
+           Math.round(t.v) > 0 ? 'collected, not yet shown remitted' : (Math.round(t.v) < 0 ? 'remitted more than collected' : 'balanced'), vcls);
+  }
+  function tile(k, v, s, cls){
+    return '<div class="tile"><div class="k">'+k+'</div><div class="v '+cls+'">₱'+v+'</div><div class="s">'+esc(s)+'</div></div>';
+  }
+
+  // No client chosen: one row per client, ranked by variance (highest first).
+  function renderClientList(rows){
+    var by = {};
+    rows.forEach(function(t){
+      var k = t.client || ('raw:' + (t.rawCode || '?'));
+      if (!by[k]) by[k] = {key:k, client:t.client, raw:t.rawCode, c:0, r:0, n:0, last:0, office:t.office};
+      var b = by[k];
+      if (t.kind==='C') b.c += t.amount; else b.r += t.amount;
+      b.n++; if ((t.date||0) > b.last) b.last = t.date || 0;
+    });
+    var list = Object.keys(by).map(function(k){ var b = by[k]; b.v = b.c - b.r; return b; });
+    list.sort(function(a,b){ return b.v - a.v; });
+    $('meta').textContent = list.length + ' client' + (list.length===1?'':'s') + ' · ' + rows.length + ' transactions';
+    $('meta-right').textContent = 'Ranked by variance, highest first · click a client to see transactions';
+    if (!list.length){ $('results').innerHTML = '<div class="empty">No transactions match these filters.</div>'; return; }
+    var html = '<table><thead><tr><th>Client</th><th>Office</th><th class="num">Txns</th><th>Last activity</th>' +
+      '<th class="num">Collected</th><th class="num">Remitted</th><th class="num">Variance</th></tr></thead><tbody>';
+    list.forEach(function(b){
+      var c = state.clientById[b.client];
+      var name = c ? esc(c.label) : '<em class="muted">' + esc(b.raw || 'Unlinked') + ' (no client link)</em>';
+      html += '<tr class="'+(c?'clickable':'')+'" data-cid="'+(c?c.id:'')+'"><td>'+name+'</td><td>'+esc(c ? c.office || b.office : b.office)+'</td>' +
+        '<td class="amount">'+b.n+'</td><td>'+fmtDate(b.last)+'</td><td class="amount">'+peso(b.c)+'</td>' +
+        '<td class="amount">'+peso(b.r)+'</td><td class="amount"><strong>'+peso(b.v)+'</strong></td></tr>';
+    });
+    html += '</tbody></table>';
+    $('results').innerHTML = html;
+  }
+
+  // Client chosen: ledger (newest first), with monthly subtotals and running variance.
+  function renderLedger(rows){
+    var c = state.clientById[state.selectedClientId];
+    rows = rows.slice().sort(function(a,b){
+      return (a.date||0) - (b.date||0) || (a.kind===b.kind ? 0 : (a.kind==='C' ? -1 : 1)) || a.id - b.id;
+    });
+    $('meta').textContent = rows.length + ' transaction' + (rows.length===1?'':'s') + ' for ' + (c ? c.label : 'client');
+    $('meta-right').textContent = 'Newest first · running variance = collected − remitted to date';
+    if (!rows.length){ $('results').innerHTML = '<div class="empty">No transactions for this client match these filters.</div>'; return; }
+
+    var run = 0, html = '<table><thead><tr><th>Date</th><th>Type</th><th>Office</th><th>Form</th><th>Return period</th>' +
+      '<th>Channel</th><th>Encoder</th><th class="num">Collected</th><th class="num">Remitted</th><th class="num">Running variance</th></tr></thead><tbody>';
+    var curMonth = null, mc = 0, mr = 0;
+    function flushMonth(){
+      if (curMonth === null) return;
+      html += '<tr class="month-sub"><td colspan="7">'+monthLabel(curMonth)+' subtotal · variance '+peso(mc-mr)+'</td>' +
+        '<td class="amount">'+peso(mc)+'</td><td class="amount">'+peso(mr)+'</td><td class="amount">'+peso(run)+'</td></tr>';
+    }
+    // Running variance is computed oldest→newest, then the ledger is displayed newest first.
+    var months = {}, seq = [];
+    rows.forEach(function(t){
+      var mk = monthKey(t.date);
+      if (!months[mk]) months[mk] = { c:0, r:0, end:0 };
+      if (t.kind==='C'){ run += t.amount; months[mk].c += t.amount; } else { run -= t.amount; months[mk].r += t.amount; }
+      months[mk].end = run;
+      seq.push({ t:t, mk:mk, run:run });
+    });
+    seq.reverse();
+    seq.forEach(function(s){
+      var t = s.t;
+      if (s.mk !== curMonth){
+        curMonth = s.mk; var m = months[s.mk];
+        html += '<tr class="month-sub"><td colspan="7">'+monthLabel(curMonth)+' subtotal · variance '+peso(m.c-m.r)+'</td>' +
+          '<td class="amount">'+peso(m.c)+'</td><td class="amount">'+peso(m.r)+'</td><td class="amount">'+peso(m.end)+'</td></tr>';
+      }
+      html += '<tr><td>'+fmtDate(t.date)+'</td>' +
+        '<td>'+(t.kind==='C' ? '<span class="pill pill-coll">Collection</span>' : '<span class="pill pill-remit">Remittance</span>')+'</td>' +
+        '<td>'+esc(t.office)+'</td><td>'+(t.form ? '<span class="pill pill-plain">'+esc(t.form)+'</span>' : '<span class="muted">—</span>')+'</td>' +
+        '<td>'+(t.period ? fmtDate(t.period) : '<span class="muted">—</span>')+'</td>' +
+        '<td>'+(t.channel ? esc(t.channel) : '<span class="muted">—</span>')+'</td>' +
+        '<td>'+(t.encoder ? esc(t.encoder) : '<span class="muted">—</span>')+'</td>' +
+        '<td class="amount">'+(t.kind==='C' ? peso(t.amount) : '')+'</td>' +
+        '<td class="amount">'+(t.kind==='R' ? peso(t.amount) : '')+'</td>' +
+        '<td class="amount">'+peso(s.run)+'</td></tr>';
+    });
+    var tt = totals(rows);
+    html += '</tbody><tfoot><tr><td colspan="7">Total</td><td class="amount">'+peso(tt.c)+'</td>' +
+      '<td class="amount">'+peso(tt.r)+'</td><td class="amount">'+peso(tt.v)+'</td></tr></tfoot></table>';
+    $('results').innerHTML = html;
+  }
+
+  // ---------- client selection ----------
+  function selectClient(cid){
+    var c = state.clientById[cid];
+    if (!c) return;
+    state.selectedClientId = cid;
+    $('s-client').value = c.label;
+    $('sel-name').textContent = c.label + (c.code ? ' (' + c.code + ')' : '') + (c.office ? ' · ' + c.office : '');
+    $('sel-chip').classList.add('show');
+    hideMenu();
+    render();
+  }
+  function clearClient(){
+    state.selectedClientId = null;
+    $('s-client').value = '';
+    $('sel-chip').classList.remove('show');
+    render();
+  }
+
+  function showMenu(){
+    var q = $('s-client').value.trim().toLowerCase();
+    if (!q){ hideMenu(); return; }
+    var items = state.clients.filter(function(c){ return c.search.indexOf(q) !== -1; }).slice(0, 30);
+    state.menuItems = items; state.menuIndex = -1;
+    var m = $('client-menu');
+    if (!items.length){ hideMenu(); return; }
+    m.innerHTML = items.map(function(c, i){
+      return '<div class="client-opt" data-i="'+i+'">'+esc(c.label)+
+        (c.code ? ' <span class="code">'+esc(c.code)+'</span>' : '')+
+        (c.office ? ' <span class="code">· '+esc(c.office)+'</span>' : '')+'</div>';
+    }).join('');
+    m.style.display = 'block';
+  }
+  function hideMenu(){ $('client-menu').style.display = 'none'; state.menuIndex = -1; }
+  function highlight(){
+    var opts = $('client-menu').querySelectorAll('.client-opt');
+    opts.forEach(function(o, i){ o.classList.toggle('active', i === state.menuIndex); });
+    if (opts[state.menuIndex]) opts[state.menuIndex].scrollIntoView({block:'nearest'});
+  }
+
+  $('s-client').addEventListener('input', function(){
+    if (state.selectedClientId){ state.selectedClientId = null; $('sel-chip').classList.remove('show'); }
+    showMenu(); render();
+  });
+  $('s-client').addEventListener('keydown', function(e){
+    var n = state.menuItems.length;
+    if ($('client-menu').style.display === 'none' || !n) return;
+    if (e.key === 'ArrowDown'){ state.menuIndex = (state.menuIndex + 1) % n; highlight(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ state.menuIndex = (state.menuIndex - 1 + n) % n; highlight(); e.preventDefault(); }
+    else if (e.key === 'Enter'){ if (state.menuIndex >= 0) selectClient(state.menuItems[state.menuIndex].id); e.preventDefault(); }
+    else if (e.key === 'Escape'){ hideMenu(); }
+  });
+  $('client-menu').addEventListener('mousedown', function(e){
+    var o = e.target.closest('.client-opt'); if (!o) return;
+    e.preventDefault(); selectClient(state.menuItems[+o.getAttribute('data-i')].id);
+  });
+  $('s-client').addEventListener('blur', function(){ setTimeout(hideMenu, 150); });
+  $('results').addEventListener('click', function(e){
+    var tr = e.target.closest('tr.clickable'); if (!tr) return;
+    var cid = +tr.getAttribute('data-cid'); if (cid) selectClient(cid);
+  });
+  ['s-office','s-type','s-form','s-month','s-from','s-to'].forEach(function(id){
+    $(id).addEventListener('change', render);
+  });
+  $('btn-clear-client').addEventListener('click', clearClient);
+  $('btn-reset').addEventListener('click', function(){
+    ['s-office','s-type','s-form','s-month','s-from','s-to'].forEach(function(id){ $(id).value = ''; });
+    clearClient();
+  });
+})();
+</script>
+</body>
+</html>
