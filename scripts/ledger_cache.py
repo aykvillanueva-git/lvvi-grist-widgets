@@ -21,6 +21,11 @@ Rules (match the Tax/Contribution variance tables in the Taxes/Contributions doc
     Clients.office). Where it was processed (e.g. a Pozorrubio client's tax remitted
     through Dagupan) is kept per transaction as "o" (processed-via office) and shown in
     the widget's "Via" column. Unlinked transactions fall back to their own office.
+  - Corporate groups: a Taxes-doc client with `related_corporate_client` set (e.g. the
+    Lomibaos/Taladua/Tolentino/Flores R under GCC) is folded into its PARENT's ledger row,
+    because the group pays as the parent but files/remits under each member's own TIN.
+    Each folded transaction keeps the member's name as "n". Contribution rows (the
+    Contributions doc has no group link) are folded by exact member-name match.
   - Office client link: source_dagupan_id / source_pozorrubio_id first, then an
     exact (case-insensitive) client_name match; otherwise the row is keyed by name
     only ("n:<NAME>") with no client link.
@@ -127,6 +132,30 @@ def collect_transactions():
     con_clients = clients_by_id(CONTRIB_DOC)
     out = []
 
+    # member -> parent (Taxes doc related_corporate_client); also by name for contributions
+    parent_of = {}
+    for cid, f in tax_clients.items():
+        pid = f.get("related_corporate_client") or 0
+        if pid and pid != cid and pid in tax_clients:
+            parent_of[cid] = pid
+    parent_by_name = {norm(tax_clients[m].get("client_name")): tax_clients[p]
+                      for m, p in parent_of.items() if tax_clients[m].get("client_name")}
+
+    def fold(t, src_cid, is_tax):
+        """Re-point a member's transaction to its corporate parent; keep member name as n."""
+        parent = None
+        if is_tax and src_cid in parent_of:
+            parent = tax_clients[parent_of[src_cid]]
+        elif not is_tax:
+            parent = parent_by_name.get(norm(t["name"]))
+        if parent:
+            t["n"] = t["name"]
+            t["src_client"] = parent
+            t["name"] = parent.get("client_name") or t["name"]
+            t["code"] = parent.get("A") or t["code"]
+            t["office"] = parent.get("office") or t["office"]
+        return t
+
     def base(src_clients, f, date_val, raw_code=""):
         cid = f.get("client") or 0
         c = src_clients.get(cid) or {}
@@ -147,7 +176,7 @@ def collect_transactions():
         t.update({"g": "T", "k": "C", "t": "", "a": money(f.get("amount")),
                   "ch": "", "m": "", "e": "", "p": None, "id": r["id"]})
         if t["a"]:
-            out.append(t)
+            out.append(fold(t, f.get("client") or 0, True))
 
     for r in list_all(TAX_DOC, "Tax_Remittances"):
         f = r["fields"]
@@ -156,7 +185,7 @@ def collect_transactions():
                   "ch": f.get("remittance_channel") or "", "m": "", "e": f.get("encoded_by") or "",
                   "p": iso(f.get("return_period")), "id": r["id"]})
         if t["a"]:
-            out.append(t)
+            out.append(fold(t, f.get("client") or 0, True))
 
     for r in list_all(CONTRIB_DOC, "Contribution_Collections"):
         f = r["fields"]
@@ -167,7 +196,7 @@ def collect_transactions():
             t = base(con_clients, f, f.get("date"))
             t.update({"g": "S", "k": "C", "t": label, "a": amt, "ch": "", "m": "", "e": "",
                       "p": None, "id": r["id"]})
-            out.append(t)
+            out.append(fold(t, 0, False))
 
     for r in list_all(CONTRIB_DOC, "Contribution_Remittances"):
         f = r["fields"]
@@ -177,7 +206,7 @@ def collect_transactions():
                   "m": f.get("payment_method") or "", "e": f.get("encoded_by") or "",
                   "p": None, "id": r["id"]})
         if t["a"]:
-            out.append(t)
+            out.append(fold(t, 0, False))
     return out
 
 
@@ -201,7 +230,10 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
         if oc and office_clients[oc].get("client_name"):
             g["name"] = office_clients[oc]["client_name"]
             g["code"] = office_clients[oc].get("A") or g["code"]
-        g["txns"].append({k: t[k] for k in ("d", "g", "k", "t", "a", "ch", "m", "e", "p", "id", "o")})
+        x = {k: t[k] for k in ("d", "g", "k", "t", "a", "ch", "m", "e", "p", "id", "o")}
+        if t.get("n"):
+            x["n"] = t["n"]  # member taxpayer, when folded into a corporate group
+        g["txns"].append(x)
 
     rows = {}
     for key, g in groups.items():
