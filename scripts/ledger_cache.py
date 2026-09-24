@@ -24,6 +24,10 @@ Rules (match the Tax/Contribution variance tables in the Taxes/Contributions doc
     only ("n:<NAME>") with no client link.
 
 Idempotent full rebuild: upserts by `ledger_key`, deletes stale keys.
+
+Also (ensure_variance_rows) adds any missing (client, year, month) rows to
+Tax_Variance_Monthly_ByClient and Contribution_Variance_Monthly_ByClient so new
+activity always shows up on the variance pages.
 Called from fund_refresh.py main(); can also be run standalone:
     GRIST_API_KEY=... python3 scripts/ledger_cache.py
 """
@@ -223,7 +227,47 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
     return rows, skipped
 
 
+# ---------------------------------------------------------------- variance-row upkeep
+# Tax_Variance_Monthly_ByClient / Contribution_Variance_Monthly_ByClient only show a
+# (client, month) that has a row; nothing else creates those rows. This adds any missing
+# (client, year, month) that has a linked, dated collection or remittance. The formula
+# columns fill in collected/remitted/variance on their own. Never deletes rows.
+VARIANCE_SOURCES = {
+    TAX_DOC: ("Tax_Variance_Monthly_ByClient",
+              [("Tax_Collections", "date"), ("Tax_Remittances", "date_paid")]),
+    CONTRIB_DOC: ("Contribution_Variance_Monthly_ByClient",
+                  [("Contribution_Collections", "date"), ("Contribution_Remittances", "date")]),
+}
+
+
+def ensure_variance_rows():
+    for doc_id, (var_table, sources) in VARIANCE_SOURCES.items():
+        have = set()
+        for r in list_all(doc_id, var_table):
+            f = r["fields"]
+            have.add((f.get("client") or 0, f.get("year"), f.get("month_num")))
+        need = set()
+        for table_id, date_col in sources:
+            for r in list_all(doc_id, table_id):
+                f = r["fields"]
+                cid, ts = f.get("client") or 0, f.get(date_col)
+                if not cid or not ts:
+                    continue
+                d = datetime.datetime.fromtimestamp(int(ts), datetime.timezone.utc)
+                key = (cid, d.year, d.month)
+                if key not in have:
+                    need.add(key)
+        add_records(doc_id, var_table, [{"client": c, "year": y, "month_num": m}
+                                        for c, y, m in sorted(need)])
+        print(f"{var_table}: {len(need)} missing client-month row(s) added"
+              + (": " + ", ".join(f"client {c} {y}-{m:02d}" for c, y, m in sorted(need)) if need else ""))
+
+
 def refresh():
+    try:
+        ensure_variance_rows()
+    except Exception as e:  # noqa: BLE001 -- never block the ledger rebuild
+        print(f"::error::variance-row upkeep failed: {e}", file=sys.stderr)
     synced_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     txns = collect_transactions()
     for office, (doc_id, src_field) in OFFICE_DOCS.items():
