@@ -17,8 +17,10 @@ Rules (match the Tax/Contribution variance tables in the Taxes/Contributions doc
     contribution remittances by `date`.
   - Contribution collections count SSS + PHIC + HDMF only (other_fees excluded),
     split into one line per nonzero type.
-  - A transaction belongs to an office by its own `office` field; if blank,
-    by its client's office in the source doc.
+  - A transaction belongs to the office page of its CLIENT'S HOME OFFICE (source-doc
+    Clients.office). Where it was processed (e.g. a Pozorrubio client's tax remitted
+    through Dagupan) is kept per transaction as "o" (processed-via office) and shown in
+    the widget's "Via" column. Unlinked transactions fall back to their own office.
   - Office client link: source_dagupan_id / source_pozorrubio_id first, then an
     exact (case-insensitive) client_name match; otherwise the row is keyed by name
     only ("n:<NAME>") with no client link.
@@ -128,8 +130,11 @@ def collect_transactions():
     def base(src_clients, f, date_val, raw_code=""):
         cid = f.get("client") or 0
         c = src_clients.get(cid) or {}
+        txn_office = f.get("office") or ""
         return {
-            "office": f.get("office") or c.get("office") or "",
+            "office": c.get("office") or txn_office,   # page = client's home office
+            "o": txn_office or c.get("office") or "",  # where it was processed
+
             "src_client": c,
             "name": c.get("client_name") or c.get("A") or raw_code or "(no client)",
             "code": c.get("A") or raw_code or "",
@@ -196,7 +201,7 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
         if oc and office_clients[oc].get("client_name"):
             g["name"] = office_clients[oc]["client_name"]
             g["code"] = office_clients[oc].get("A") or g["code"]
-        g["txns"].append({k: t[k] for k in ("d", "g", "k", "t", "a", "ch", "m", "e", "p", "id")})
+        g["txns"].append({k: t[k] for k in ("d", "g", "k", "t", "a", "ch", "m", "e", "p", "id", "o")})
 
     rows = {}
     for key, g in groups.items():
