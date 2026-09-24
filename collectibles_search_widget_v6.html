@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVVI Collectibles — Search &amp; Filter</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{
+    --navy:#1c2b3a; --navy-soft:#2e4257; --teal:#1f7a6c; --teal-dark:#155e53;
+    --paper:#f6f5f1; --card:#ffffff; --line:#e2e0d8; --ink:#20242b; --ink-soft:#5b6470;
+    --warn:#b3491f; --warn-bg:#fbe9e1; --ok-bg:#e9f3ef; --success-text:#155e53;
+    --input-bg:#ffffff; --divider:#f0efe9; --chip-bg:#eee; --hover-bg:#fafaf7; --pill-bg:#eef1f4;
+    --coll-bg:#e3f1ec; --coll-ink:#155e53; --remit-bg:#fde9d0; --remit-ink:#8a5a1e;
+    --shadow:rgba(20,30,40,.14); --radius:8px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Consolas","Menlo",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#5b9bd5; --navy-soft:#4a86b8; --teal:#2f9c88; --teal-dark:#3fb39e; --success-text:#7ee0c9;
+      --paper:#1c1e21; --card:#26282c; --line:#40434a; --ink:#eceef0; --ink-soft:#9a9da2;
+      --warn:#e2825a; --warn-bg:#4a2a1f; --ok-bg:#1f3d36; --input-bg:#1c1e21; --divider:#34373c;
+      --chip-bg:#33363b; --hover-bg:#303338; --pill-bg:#26313a;
+      --coll-bg:#1f3d36; --coll-ink:#7ee0c9; --remit-bg:#4a3520; --remit-ink:#f0c48a;
+      --shadow:rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.4;padding:14px;}
+  h1{font-size:16px;font-weight:700;color:var(--navy);margin:0 0 2px 0;}
+  .subtitle{color:var(--ink-soft);font-size:12px;margin:0 0 12px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--navy-soft);
+    margin:0 0 10px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+  input[type=text],input[type=date],select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;
+    font-size:14px;font-family:var(--font);background:var(--input-bg);color:var(--ink);}
+  input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  .search-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+  .search-row .field{flex:1 1 120px;position:relative;}
+  .search-row .field.wide{flex:2.5 1 220px;}
+  button{font-family:var(--font);font-size:13px;font-weight:600;border-radius:6px;border:1px solid var(--line);
+    padding:7px 12px;cursor:pointer;background:transparent;color:var(--ink-soft);}
+  button:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .client-menu{position:absolute;z-index:20;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;box-shadow:0 6px 18px var(--shadow);max-height:240px;overflow-y:auto;margin-top:2px;}
+  .client-opt{padding:7px 9px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--divider);}
+  .client-opt:last-child{border-bottom:none;}
+  .client-opt:hover,.client-opt.active{background:var(--ok-bg);}
+  .client-opt .code{color:var(--ink-soft);font-family:var(--mono);font-size:11px;}
+  .selected-chip{display:none;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;border-radius:6px;
+    background:var(--ok-bg);font-size:13px;}
+  .selected-chip.show{display:flex;}
+  .selected-chip strong{flex:1;}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+  .tile .k{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .tile .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px;}
+  .tile .s{font-size:11px;color:var(--ink-soft);}
+  .v.pos{color:var(--warn);} .v.neg{color:var(--navy);}
+  .results-meta{font-size:12px;color:var(--ink-soft);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .results-scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:6px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);
+    border-bottom:1px solid var(--line);padding:6px 8px;position:sticky;top:0;background:var(--card);white-space:nowrap;}
+  thead th.num{text-align:right;}
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--divider);vertical-align:top;}
+  tbody tr:hover{background:var(--hover-bg);}
+  tbody tr.clickable{cursor:pointer;}
+  tbody tr.month-sub td{background:var(--hover-bg);font-weight:600;font-size:12px;color:var(--ink-soft);}
+  tfoot td{padding:8px;font-weight:700;border-top:2px solid var(--line);background:var(--card);position:sticky;bottom:0;}
+  .amount{font-family:var(--mono);text-align:right;white-space:nowrap;}
+  .pill{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+  .pill-coll{background:var(--coll-bg);color:var(--coll-ink);}
+  .pill-remit{background:var(--remit-bg);color:var(--remit-ink);}
+  .pill-plain{background:var(--pill-bg);color:var(--navy-soft);}
+  .pill-tax{background:#e4dcf7;color:#5b3fa0;}
+  .pill-con{background:#dcecf7;color:#1f5f8b;}
+  @media (prefers-color-scheme: dark){.pill-tax{background:#35294f;color:#c9b8f5;}.pill-con{background:#1f3547;color:#9fd0f2;}}
+  .tile .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:12px;}
+  .sync{font-size:11px;color:var(--ink-soft);}
+  .muted{color:var(--ink-soft);}
+  .empty{padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;}
+  .err{color:var(--warn);font-size:12px;}
+  .pill-warn{background:var(--warn-bg);color:var(--warn);}
+  .pill-ok{background:var(--ok-bg);color:var(--success-text);}
+  tbody tr.sel td{background:var(--ok-bg);}
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;}
+  .detail-grid .tile .row{margin-top:3px;}
+  .note{font-size:12px;color:var(--ink-soft);background:var(--hover-bg);border:1px dashed var(--line);border-radius:6px;padding:8px 10px;margin-bottom:10px;}
+  .code{font-family:var(--mono);font-size:11px;color:var(--ink-soft);}
+  th.sortable{cursor:pointer;} th.sortable:hover{color:var(--ink);}
+</style>
+</head>
+<body>
+  <h1>Collectibles — <span id="office-name">Office</span></h1>
+  <p class="subtitle">Search and filter retainer arrears (monthly, quarterly, annual) for this office's clients. Live from the Collectibles table; click a client to see their fee collections (date and category). <span class="sync" id="sync"></span></p>
+
+  <div class="card">
+    <div class="card-title"><span>Search &amp; Filter</span><button id="btn-reset" type="button">Reset</button></div>
+    <div class="search-row">
+      <div class="field wide">
+        <label for="s-text">Client / Code / Trade name</label>
+        <input type="text" id="s-text" placeholder="e.g. camagay, uson m, GCC…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="s-status">Status</label>
+        <select id="s-status">
+          <option value="">All clients</option>
+          <option value="arrears" selected>With any balance</option>
+          <option value="m">Monthly balance</option>
+          <option value="q">Quarterly balance</option>
+          <option value="a">Annual balance</option>
+          <option value="paid">Fully paid</option>
+          <option value="nolink">No client link</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="s-behind">Months behind</label>
+        <select id="s-behind">
+          <option value="0">Any</option><option value="1">1+ month</option><option value="2">2+ months</option>
+          <option value="3">3+ months</option><option value="6">6+ months</option>
+        </select>
+      </div>
+      <div class="field" id="f-handler" style="display:none">
+        <label for="s-handler">Handler</label>
+        <select id="s-handler"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label for="s-min">Min. balance (₱)</label>
+        <input type="text" id="s-min" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="s-sort">Sort by</label>
+        <select id="s-sort">
+          <option value="tot">Total balance ↓</option>
+          <option value="mo">Monthly balance ↓</option>
+          <option value="behind">Months behind ↓</option>
+          <option value="qa">Qtr + Annual balance ↓</option>
+          <option value="fee">Monthly fee ↓</option>
+          <option value="name">Client A–Z</option>
+        </select>
+      </div>
+    </div>
+    <div class="selected-chip" id="sel-chip">
+      <span class="muted">Client:</span><strong id="sel-name"></strong>
+      <button type="button" id="btn-clear">Back to list</button>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <div class="results-meta"><span id="meta"></span><span id="meta-right" class="muted"></span></div>
+    <div id="detail-top"></div>
+    <div class="results-scroll" id="results"><div class="empty">Loading…</div></div>
+  </div>
+
+<script>
+(function(){
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var S = { rows: [], byId: {}, clients: {}, colls: null, office: '', selected: null, loaded: false };
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function n(v){ v = Number(v); return isFinite(v) ? v : 0; }
+  function peso(v){ v = Math.round(v || 0); var s = Math.abs(v).toLocaleString('en-US'); return v < 0 ? '(' + s + ')' : s; }
+  function pz(v){ return Math.round(v) ? peso(v) : '<span class="muted">—</span>'; }
+  function toDate(v){
+    if (v == null || v === '') return null;
+    if (typeof v === 'number') return new Date(v * 1000);
+    if (v instanceof Date) return v;
+    var d = new Date(v); return isNaN(d) ? null : d;
+  }
+  function refId(v){
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number') return v;
+    if (Array.isArray(v)) return Number(v[v.length-1]) || 0;   // ['R','Clients',id]
+    if (typeof v === 'object') return Number(v.id || v.rowId) || 0; // expanded record
+    return Number(v) || 0;
+  }
+  function fmtDate(d){ return d ? d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit',timeZone:'UTC'}) : '—'; }
+
+  grist.ready({requiredAccess: 'read table'});
+
+  function loadLookups(){
+    return grist.docApi.fetchTable('Clients').then(function(t){
+      var map = {}, offices = {};
+      (t.id || []).forEach(function(id, i){
+        map[id] = { code: (t.A||[])[i] || '', name: (t.client_name||[])[i] || '', trade: (t.tradename||[])[i] || '',
+                    office: (t.B||[])[i] || '', handler: (t.C||[])[i] || '' };
+        var o = map[id].office; if (o) offices[o] = (offices[o] || 0) + 1;
+      });
+      S.clients = map;
+      S.office = Object.keys(offices).sort(function(a,b){ return offices[b]-offices[a]; })[0] || '';
+    }).catch(function(e){ console.warn('Clients fetch failed', e); });
+  }
+  var lookupsReady = loadLookups();
+  // Custom widgets only receive columns visible in their section; the fee column was added later,
+  // so ask for all columns and, if still missing, read it straight from the table.
+  function withFeeJson(records){
+    if (!records.length || records[0].fee_collections_json !== undefined) return Promise.resolve(records);
+    return grist.docApi.fetchTable('Collectibles').then(function(t){
+      var m = {}; (t.id || []).forEach(function(id, i){ m[id] = (t.fee_collections_json || [])[i]; });
+      return records.map(function(r){ var c = Object.assign({}, r); c.fee_collections_json = m[r.id]; return c; });
+    }).catch(function(e){ console.warn('Collectibles fetch failed', e); return records; });
+  }
+  grist.onRecords(function(raw){
+    Promise.all([lookupsReady, withFeeJson(raw)]).then(function(res){ var records = res[1];
+      S.rows = records.map(function(r){
+        var cid = refId(r.client), c = cid ? (S.clients[cid] || null) : null;
+        var o = { id: r.id, client: cid, key: r.fee_key || '', c: c,
+          fee: n(r.monthly_fee), months: n(r.confirmed_months),
+          expM: n(r.expected_monthly), colM: n(r.collected_monthly), outM: n(r.outstanding_monthly),
+          expQ: n(r.expected_quarterly), colQ: n(r.quarterly_collected_ytd), outQ: n(r.outstanding_quarterly),
+          expA: n(r.expected_annual), colA: n(r.annual_collected_ytd), outA: n(r.outstanding_annual),
+          legacyQA: n(r.qtr_annual_collected_ytd),
+          h1: (r.collected_monthly_h1 !== undefined) ? { m: n(r.collected_monthly_h1), q: n(r.quarterly_collected_h1),
+                a: n(r.annual_collected_h1), qa: n(r.qtr_annual_collected_h1) } : null };
+        var CAT = {M:'Monthly retainer', Q:'Quarterly', A:'Annual', QA:'Qtr/Annual (legacy)'}, fc = [];
+        try { fc = JSON.parse(r.fee_collections_json || '[]'); } catch(e){ fc = []; }
+        o.colls = fc.map(function(x){ var p = String(x[0]).split('-');
+          return { d: new Date(Date.UTC(+p[0], +p[1]-1, +p[2])), cat: CAT[x[1]] || x[1], amt: n(x[2]), method: x[3] || '', enc: x[4] || '', id: x[5] || 0 }; });
+        o.hasData = r.fee_collections_json !== undefined;
+        o.tot = o.outM + o.outQ + o.outA;
+        o.behind = o.fee ? o.outM / o.fee : 0;
+        o.label = c ? (c.name || c.code) : (o.key || '(no fee key)');
+        o.search = [o.key, c && c.code, c && c.name, c && c.trade].join(' ').toLowerCase();
+        return o;
+      });
+      S.byId = {}; S.rows.forEach(function(o){ S.byId[o.id] = o; });
+      $('office-name').textContent = S.office || 'Office';
+      var hs = {}; S.rows.forEach(function(o){ if (o.c && o.c.handler) hs[o.c.handler] = 1; });
+      var hk = Object.keys(hs).sort(), keep = $('s-handler').value;
+      $('f-handler').style.display = hk.length ? '' : 'none';
+      $('s-handler').innerHTML = '<option value="">All</option>' + hk.map(function(h){ return '<option>'+esc(h)+'</option>'; }).join('');
+      $('s-handler').value = keep;
+      var now = new Date();
+      $('sync').textContent = '· As of ' + fmtDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))) + '.';
+      S.loaded = true;
+      if (S.selected && !S.byId[S.selected]) S.selected = null;
+      render();
+    });
+  }, {includeColumns: 'all', expandRefs: false});
+  grist.onRecord(function(r){
+    if (r && S.byId[r.id] && S.selected && r.id !== S.selected){ S.selected = r.id; render(); }
+  });
+
+  function F(){
+    return { text: $('s-text').value.trim().toLowerCase(), status: $('s-status').value, behind: n($('s-behind').value),
+      handler: $('s-handler').value, min: n(($('s-min').value || '').replace(/[^0-9.]/g,'')), sort: $('s-sort').value };
+  }
+  function passes(o, f){
+    if (f.text && o.search.indexOf(f.text) === -1) return false;
+    var r = function(v){ return Math.round(v) > 0; };
+    switch (f.status){
+      case 'arrears': if (!r(o.tot)) return false; break;
+      case 'm': if (!r(o.outM)) return false; break;
+      case 'q': if (!r(o.outQ)) return false; break;
+      case 'a': if (!r(o.outA)) return false; break;
+      case 'paid': if (r(o.tot) || !(o.expM + o.expQ + o.expA)) return false; break;
+      case 'nolink': if (o.client) return false; break;
+    }
+    if (f.behind && o.behind < f.behind - 0.001) return false;
+    if (f.handler && !(o.c && o.c.handler === f.handler)) return false;
+    if (f.min && o.tot < f.min) return false;
+    return true;
+  }
+  function sorter(k){
+    var by = { tot:'tot', mo:'outM', behind:'behind', fee:'fee' };
+    if (k === 'name') return function(a,b){ return a.label.localeCompare(b.label); };
+    if (k === 'qa') return function(a,b){ return (b.outQ+b.outA) - (a.outQ+a.outA) || b.tot - a.tot; };
+    var p = by[k] || 'tot';
+    return function(a,b){ return b[p] - a[p] || b.tot - a.tot || a.label.localeCompare(b.label); };
+  }
+  function sum(list){
+    var s = { expM:0,colM:0,outM:0,expQ:0,colQ:0,outQ:0,expA:0,colA:0,outA:0,tot:0,fee:0 };
+    list.forEach(function(o){ for (var k in s) s[k] += o[k]; }); return s;
+  }
+
+  function render(){
+    if (!S.loaded) return;
+    var f = F(), list = S.rows.filter(function(o){ return passes(o, f); }).sort(sorter(f.sort));
+    renderTiles(S.selected ? [S.byId[S.selected]] : list, S.selected ? null : list.filter(function(o){ return Math.round(o.tot) > 0; }).length);
+    if (S.selected) renderDetail(S.byId[S.selected]); else renderList(list);
+  }
+  function tile(t, v, rows){
+    return '<div class="tile"><div class="k">'+t+'</div><div class="v '+(Math.round(v)>0?'pos':'')+'">₱'+peso(v)+'</div>' +
+      (rows||[]).map(function(r){ return '<div class="row"><span class="muted">'+r[0]+'</span><span>'+peso(r[1])+'</span></div>'; }).join('') + '</div>';
+  }
+  function renderTiles(list, withBal){
+    var s = sum(list);
+    $('tiles').innerHTML =
+      '<div class="tile"><div class="k">Total balance</div><div class="v '+(Math.round(s.tot)>0?'pos':'')+'">₱'+peso(s.tot)+'</div>' +
+        '<div class="s">' + (withBal == null ? 'this client' : withBal + ' client' + (withBal===1?'':'s') + ' with a balance · ' + list.length + ' shown') + '</div></div>' +
+      tile('Monthly retainer', s.outM, [['Expected', s.expM], ['Collected', s.colM]]) +
+      tile('Quarterly', s.outQ, [['Expected', s.expQ], ['Collected', s.colQ]]) +
+      tile('Annual', s.outA, [['Expected', s.expA], ['Collected', s.colA]]);
+  }
+
+  function nameCell(o){
+    var c = o.c, h = '';
+    if (c){
+      h = esc(c.name || c.code) + ' <span class="code">' + esc(c.code) + '</span>';
+      if (c.trade && c.trade !== c.name) h += '<div class="muted" style="font-size:11px">' + esc(c.trade) + '</div>';
+    } else if (o.client) {
+      h = '<span class="code">' + esc(o.key) + '</span>';
+    } else {
+      h = '<span class="code">' + esc(o.key) + '</span> <span class="pill pill-warn">no client link</span>';
+    }
+    return h;
+  }
+  function renderList(list){
+    $('sel-chip').classList.remove('show'); $('detail-top').innerHTML = '';
+    $('meta').textContent = list.length + ' of ' + S.rows.length + ' fee schedule entr' + (S.rows.length===1?'y':'ies');
+    $('meta-right').textContent = 'Click a client for their fee collections';
+    if (!list.length){ $('results').innerHTML = '<div class="empty">No clients match these filters.</div>'; return; }
+    var showH = $('f-handler').style.display !== 'none';
+    var h = '<table><thead><tr><th>Client</th>' + (showH ? '<th>Handler</th>' : '') +
+      '<th class="num">Monthly fee</th><th class="num">Months behind</th><th class="num">Monthly bal.</th>' +
+      '<th class="num">Quarterly bal.</th><th class="num">Annual bal.</th><th class="num">Total bal.</th><th class="num">Collected YTD</th></tr></thead><tbody>';
+    list.forEach(function(o){
+      var b = Math.round(o.behind * 10) / 10;
+      h += '<tr class="clickable" data-id="'+o.id+'"><td>'+nameCell(o)+'</td>' +
+        (showH ? '<td>'+esc(o.c && o.c.handler || '')+'</td>' : '') +
+        '<td class="amount">'+pz(o.fee)+'</td>' +
+        '<td class="amount">'+(b ? '<span class="pill '+(b>=3?'pill-warn':'pill-plain')+'">'+b+'</span>' : '<span class="muted">—</span>')+'</td>' +
+        '<td class="amount">'+pz(o.outM)+'</td><td class="amount">'+pz(o.outQ)+'</td><td class="amount">'+pz(o.outA)+'</td>' +
+        '<td class="amount"><strong>'+pz(o.tot)+'</strong></td>' +
+        '<td class="amount">'+pz(o.colM+o.colQ+o.colA)+'</td></tr>';
+    });
+    var s = sum(list);
+    h += '</tbody><tfoot><tr><td>Total ('+list.length+')</td>' + (showH ? '<td></td>' : '') +
+      '<td class="amount">'+peso(s.fee)+'</td><td></td><td class="amount">'+peso(s.outM)+'</td><td class="amount">'+peso(s.outQ)+'</td>' +
+      '<td class="amount">'+peso(s.outA)+'</td><td class="amount">'+peso(s.tot)+'</td><td class="amount">'+peso(s.colM+s.colQ+s.colA)+'</td></tr></tfoot></table>';
+    $('results').innerHTML = h;
+  }
+
+  function renderDetail(o){
+    $('sel-chip').classList.add('show');
+    var hd = o.c && o.c.handler;
+    $('sel-name').innerHTML = esc(o.label) + (o.c && o.c.code ? ' <span class="code">(' + esc(o.c.code) + ')</span>' : '') +
+      ' <span class="pill ' + (hd ? 'pill-plain' : 'pill-warn') + '" style="margin-left:6px">Handler: ' + esc(hd || 'not assigned') + '</span>';
+    $('meta').textContent = 'Fee schedule: ' + (o.key || '—') + ' · monthly fee ₱' + peso(o.fee) + ' · ' + o.months + ' month' + (o.months===1?'':'s') + ' expected so far';
+    $('meta-right').textContent = 'Fee collections this year, newest first';
+    var top = '<div class="detail-grid">' +
+      tile('Monthly balance', o.outM, [['Expected', o.expM], ['Collected', o.colM]]) +
+      tile('Quarterly balance', o.outQ, [['Expected', o.expQ], ['Collected', o.colQ]]) +
+      tile('Annual balance', o.outA, [['Expected', o.expA], ['Collected', o.colA]]) + '</div>';
+    if (o.h1 && (o.h1.m || o.h1.q || o.h1.a || o.h1.qa))
+      top += '<div class="note">Jan–Jun entries were archived; only their totals are kept: monthly ₱' + peso(o.h1.m) +
+        ', quarterly ₱' + peso(o.h1.q) + ', annual ₱' + peso(o.h1.a) + (o.h1.qa ? ', qtr/annual (legacy) ₱' + peso(o.h1.qa) : '') + '. Itemized collections below start in July.</div>';
+    if (!o.client) top += '<div class="note">This fee schedule entry has no client linked, so no collections can be matched. Link the client on the Fee Schedule page.</div>';
+    $('detail-top').innerHTML = top;
+    if (!o.client){ $('results').innerHTML = ''; return; }
+    if (!o.hasData){ $('results').innerHTML = '<div class="empty err">The Fee Collections column is missing from this Collectibles table.</div>'; return; }
+    var rows = o.colls.slice().sort(function(a,b){ return b.d - a.d || b.id - a.id; });
+    if (!rows.length){ $('results').innerHTML = '<div class="empty">No itemized fee collections' + (o.h1 ? ' from July onward' : ' this year') + '.</div>'; return; }
+    var PILL = {'Monthly retainer':'pill-coll','Quarterly':'pill-tax','Annual':'pill-remit','Qtr/Annual (legacy)':'pill-plain'};
+    var tot = 0, byCat = {};
+    var h = '<table><thead><tr><th>Date</th><th>Category</th><th class="num">Amount</th><th>Method</th><th>Encoded by</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      tot += r.amt; byCat[r.cat] = (byCat[r.cat] || 0) + r.amt;
+      h += '<tr><td>'+fmtDate(r.d)+'</td><td><span class="pill '+(PILL[r.cat]||'pill-plain')+'">'+esc(r.cat)+'</span></td>' +
+        '<td class="amount">'+peso(r.amt)+'</td><td>'+esc(r.method)+'</td><td>'+esc(r.enc)+'</td></tr>';
+    });
+    var parts = Object.keys(byCat).map(function(k){ return esc(k) + ' ' + peso(byCat[k]); }).join(' · ');
+    h += '</tbody><tfoot><tr><td colspan="2">Total ('+rows.length+') <span class="muted" style="font-weight:400">'+parts+'</span></td>' +
+      '<td class="amount">'+peso(tot)+'</td><td></td><td></td></tr></tfoot></table>';
+    $('results').innerHTML = h;
+  }
+
+  $('results').addEventListener('click', function(e){
+    var tr = e.target.closest('tr[data-id]'); if (!tr) return;
+    S.selected = +tr.getAttribute('data-id');
+    try { grist.setCursorPos({rowId: S.selected}); } catch(err){}
+    render();
+  });
+  $('btn-clear').addEventListener('click', function(){ S.selected = null; render(); });
+  $('btn-reset').addEventListener('click', function(){
+    $('s-text').value = ''; $('s-status').value = 'arrears'; $('s-behind').value = '0'; $('s-handler').value = '';
+    $('s-min').value = ''; $('s-sort').value = 'tot'; S.selected = null; render();
+  });
+  ['s-text','s-min'].forEach(function(id){ $(id).addEventListener('input', function(){ S.selected = null; render(); }); });
+  ['s-status','s-behind','s-handler','s-sort'].forEach(function(id){ $(id).addEventListener('change', function(){ S.selected = null; render(); }); });
+})();
+</script>
+</body>
+</html>
