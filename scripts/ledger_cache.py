@@ -21,6 +21,10 @@ Rules (match the Tax/Contribution variance tables in the Taxes/Contributions doc
     Clients.office). Where it was processed (e.g. a Pozorrubio client's tax remitted
     through Dagupan) is kept per transaction as "o" (processed-via office) and shown in
     the widget's "Via" column. Unlinked transactions fall back to their own office.
+  - Remittances (tax and contribution) are ALWAYS processed through Dagupan -- the
+    Pozorrubio office never remits -- so every remittance's "o" (Via) is forced to
+    "Dagupan", whatever office tag the source row carries (older Liquidation-report rows
+    were tagged with the client's office, not the processing office).
   - Corporate groups: a Taxes-doc client with `related_corporate_client` set (e.g. the
     Lomibaos/Taladua/Tolentino/Flores R under GCC) is folded into its PARENT's ledger row,
     because the group pays as the parent but files/remits under each member's own TIN.
@@ -141,6 +145,8 @@ def collect_transactions():
     parent_by_name = {norm(tax_clients[m].get("client_name")): tax_clients[p]
                       for m, p in parent_of.items() if tax_clients[m].get("client_name")}
 
+    REMIT_OFFICE = "Dagupan"  # all remittances pass through Dagupan (per Ayk 2026-09-24)
+
     def fold(t, src_cid, is_tax):
         """Re-point a member's transaction to its corporate parent; keep member name as n."""
         parent = None
@@ -148,6 +154,8 @@ def collect_transactions():
             parent = tax_clients[parent_of[src_cid]]
         elif not is_tax:
             parent = parent_by_name.get(norm(t["name"]))
+        if t.get("k") == "R":
+            t["o"] = REMIT_OFFICE
         if parent:
             t["n"] = t["name"]
             t["src_client"] = parent
