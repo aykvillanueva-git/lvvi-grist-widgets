@@ -15,8 +15,11 @@ gets ONE ROW PER CLIENT, with that client's transactions packed as JSON in
 Rules (match the Tax/Contribution variance tables in the Taxes/Contributions docs):
   - Cash basis: collections by `date`; tax remittances by `date_paid`;
     contribution remittances by `date`.
-  - Contribution collections count SSS + PHIC + HDMF only (other_fees excluded),
-    split into one line per nonzero type.
+  - Contribution collections count SSS + PHIC + HDMF + others_permits (other_fees
+    excluded), split into one line per nonzero type. others_permits is the dRpt
+    "OTHERS /Permits" distribution -- client contri money not split by type -- and
+    shows as "Others/Permits"; it offsets Blended/Unspecified remittances and matches
+    the variance tables' permits_collected (per Ayk 2026-09-25).
   - A transaction belongs to the office page of its CLIENT'S HOME OFFICE (source-doc
     Clients.office). Where it was processed (e.g. a Pozorrubio client's tax remitted
     through Dagupan) is kept per transaction as "o" (processed-via office) and shown in
@@ -197,7 +200,8 @@ def collect_transactions():
 
     for r in list_all(CONTRIB_DOC, "Contribution_Collections"):
         f = r["fields"]
-        for col, label in (("sss", "SSS"), ("phic", "PHIC"), ("hdmf", "HDMF")):
+        for col, label in (("sss", "SSS"), ("phic", "PHIC"), ("hdmf", "HDMF"),
+                           ("others_permits", "Others/Permits")):
             amt = money(f.get(col))
             if not amt:
                 continue
