@@ -42,6 +42,9 @@ Idempotent full rebuild: upserts by `ledger_key`, deletes stale keys.
 Also (ensure_variance_rows) adds any missing (client, year, month) rows to
 Tax_Variance_Monthly_ByClient and Contribution_Variance_Monthly_ByClient so new
 activity always shows up on the variance pages.
+Light mode (2026-09-26): each table is fetched once per run (shared with
+fund_refresh.py) and only changed ledger rows are written. The workflow is
+manual-only now -- run it after the firm-wide refresh.
 Called from fund_refresh.py main(); can also be run standalone:
     GRIST_API_KEY=... python3 scripts/ledger_cache.py
 """
@@ -83,9 +86,19 @@ def _req(method, url, body=None, params=None):
         raise
 
 
-def list_all(doc_id, table_id):
-    # No offset pagination on GET /records -- one call with a high limit.
-    return _req("GET", f"{BASE}/{doc_id}/tables/{table_id}/records", params={"limit": 20000})["records"]
+_CACHE = {}
+
+
+def list_all(doc_id, table_id, fresh=False):
+    """One GET per table per run. No offset pagination on GET /records -- one call
+    with a high limit. Memoized so fund_refresh.py and this module never fetch the
+    same table twice in a run (every call counts against Grist's monthly API
+    allowance). Pass fresh=True for a table whose formulas just changed."""
+    key = (doc_id, table_id)
+    if fresh or key not in _CACHE:
+        _CACHE[key] = _req("GET", f"{BASE}/{doc_id}/tables/{table_id}/records",
+                           params={"limit": 20000})["records"]
+    return _CACHE[key]
 
 
 def _chunks(seq):
@@ -312,6 +325,24 @@ def ensure_variance_rows():
               + (": " + ", ".join(f"client {c} {y}-{m:02d}" for c, y, m in sorted(need)) if need else ""))
 
 
+_COMPARE = ("client", "client_name", "tax_collected", "tax_remitted", "contri_collected",
+            "contri_remitted", "txn_count", "last_activity", "txns_json")
+
+
+def _same(old, new):
+    """True when a ledger row's content is unchanged (synced_at ignored)."""
+    for k in _COMPARE:
+        a, b = old.get(k), new.get(k)
+        if a in (None, 0, "") and b in (None, 0, ""):
+            continue
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            if round(float(a), 2) != round(float(b), 2):
+                return False
+        elif a != b:
+            return False
+    return True
+
+
 def refresh():
     try:
         ensure_variance_rows()
@@ -321,16 +352,19 @@ def refresh():
     txns = collect_transactions()
     for office, (doc_id, src_field) in OFFICE_DOCS.items():
         rows, skipped = build_office_rows(office, doc_id, src_field, txns, synced_at)
-        existing = {r["fields"].get("ledger_key"): r["id"] for r in list_all(doc_id, TABLE)}
-        updates = [(existing[k], f) for k, f in rows.items() if k in existing]
+        existing = {r["fields"].get("ledger_key"): r for r in list_all(doc_id, TABLE)}
+        # Write only rows whose content actually changed -- rewriting every client
+        # on every run was the main drain on the API allowance.
+        updates = [(existing[k]["id"], f) for k, f in rows.items()
+                   if k in existing and not _same(existing[k]["fields"], f)]
         inserts = [f for k, f in rows.items() if k not in existing]
-        stale = [rid for k, rid in existing.items() if k not in rows]
+        stale = [r["id"] for k, r in existing.items() if k not in rows]
         update_records(doc_id, TABLE, updates)
         add_records(doc_id, TABLE, inserts)
         delete_records(doc_id, TABLE, stale)
         n = sum(r["txn_count"] for r in rows.values())
         print(f"{TABLE} [{office}]: {len(rows)} clients, {n} transactions "
-              f"({len(updates)} updated, {len(inserts)} added, {len(stale)} removed)"
+              f"({len(updates)} changed, {len(inserts)} added, {len(stale)} removed)"
               + (f"; {skipped} source rows had no office and were skipped" if skipped else ""))
 
 

@@ -18,6 +18,10 @@ Logic:
   - Idempotent: only rows where posted_to_fund is not yet true are touched, so this
     is safe to run repeatedly (e.g. on every scheduled run or firm-wide refresh).
 
+Manual-only since 2026-09-26 (the 12-hour schedule was removed to save Grist API
+calls) -- run from GitHub Actions > "Refresh LVVI Fund Balance" > Run workflow,
+right after the firm-wide refresh.
+
 Requires env var GRIST_API_KEY (a Grist personal API key, injected as a GitHub
 Actions secret -- never written to disk or logged).
 """
@@ -54,14 +58,9 @@ def _req(method, url, body=None, params=None):
         raise
 
 
-def list_all(doc_id, table_id):
-    # Grist's REST API supports `limit` but NOT `offset` on GET /records --
-    # there is no offset-based pagination. Use one call with a limit comfortably
-    # above any realistic table size instead of looping (a loop here would never
-    # terminate, since every "page" would just re-return the same first rows).
-    url = f"{BASE}/{doc_id}/tables/{table_id}/records"
-    data = _req("GET", url, params={"limit": 20000})
-    return data["records"]
+# Shared, memoized reader (one GET per table per run, reused by ledger_cache) --
+# every call counts against the Grist site's monthly API allowance.
+from ledger_cache import list_all  # noqa: E402
 
 
 def add_records(doc_id, table_id, field_dicts):
@@ -126,7 +125,8 @@ def publish_fund_balance():
     hours" banner text was aspirational, not real, until this function and
     its accompanying workflow step existed.
     """
-    rows = list_all(DAGUPAN_DOC, "Fund_Accountability")
+    # fresh=True: net_balance must reflect any Fund_Remittance_Payments just added.
+    rows = list_all(DAGUPAN_DOC, "Fund_Accountability", fresh=True)
     if not rows:
         print("Fund_Accountability has no rows -- skipping fund_balance.json publish.", file=sys.stderr)
         return
