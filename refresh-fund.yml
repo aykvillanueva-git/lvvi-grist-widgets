@@ -1,16 +1,16 @@
 name: Refresh LVVI Fund Balance
 
+# Manual only (per Ayk 2026-09-26): the 12-hour schedule was removed because it
+# used up the Grist site's monthly API allowance. Run it from the Actions tab
+# ("Run workflow") right after the firm-wide refresh.
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 */12 * * *"
-
-permissions:
-  contents: write
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,14 +25,14 @@ jobs:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
         run: python3 scripts/fund_refresh.py
 
-      - name: Commit fund balance snapshot
+      - name: Commit and push fund_balance.json if it changed
         run: |
-          git config user.name "lvvi-fund-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add fund_balance.json
-          if git diff --cached --quiet; then
-            echo "No balance change to commit"
+          git config user.name "lvvi-fund-refresh-bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet -- fund_balance.json; then
+            echo "fund_balance.json unchanged, nothing to commit."
           else
-            git commit -m "Update fund balance snapshot [skip ci]"
+            git add fund_balance.json
+            git commit -m "Auto-update fund_balance.json [skip ci]"
             git push
           fi
