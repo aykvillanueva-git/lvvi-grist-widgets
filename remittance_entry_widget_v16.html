@@ -427,9 +427,9 @@
       var dateStr = d.fund_as_of ? formatSnapshotDate(d.fund_as_of) : '';
       el.innerHTML = '💰 Tax &amp; Contributions Fund balance: <strong>\u20B1' + fmted + '</strong>' +
         (dateStr ? ' (as of ' + dateStr + ')' : '') +
-        ' &middot; refreshes automatically about every 12 hours';
+        ' &middot; updates on each LVVI refresh';
     }).catch(function(){
-      el.textContent = '🔄 Fund balance syncs automatically every 12 hours, and after a manual refresh — no action needed.';
+      el.textContent = '🔄 Fund balance updates on each LVVI refresh — no action needed.';
     });
   })();
 
