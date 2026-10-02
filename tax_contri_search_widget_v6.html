@@ -188,7 +188,7 @@
     });
     state.office = office;
     $('office-name').textContent = office || 'Office';
-    $('sync').textContent = synced ? '· Data as of ' + synced + ' (auto-refreshes about every 12 hours).' :
+    $('sync').textContent = synced ? '· Data as of ' + synced + ' (updates on each LVVI refresh).' :
       '· No data yet — the cache fills on the next scheduled refresh.';
     state.clients.sort(function(a,b){ return a.name.localeCompare(b.name); });
     buildDropdowns();
