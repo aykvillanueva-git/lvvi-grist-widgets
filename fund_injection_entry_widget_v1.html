@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Fund Injection</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg: #fff; --card-bg: #f7f6f2; --border: #dfdcd3; --muted: #6b6a66;
+    --text: #1f1e1c; --accent: #185fa5; --accent-bg: #e6f1fb;
+    --danger: #a32d2d; --success: #3b6d11; --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #26282c; --card-bg: #303338; --border: #45484e; --muted: #9a9da2;
+      --text: #eceef0; --accent: #5b9bd5; --accent-bg: #2b3a4a;
+      --danger: #e88a8a; --success: #93c47d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text); background: var(--bg); margin: 0; padding: 10px; font-size: 14px;
+  }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 8px; color: var(--muted);
+       text-transform: uppercase; letter-spacing: 0.04em; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 8px; margin-bottom: 6px; }
+  .wide { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  label .req { color: var(--danger); }
+  input, select {
+    width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--bg);
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+  #f-amount { text-align: right; font-variant-numeric: tabular-nums; }
+  .footer-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  button#save-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+    padding: 6px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+  #status-msg { font-size: 13px; }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+</style>
+</head>
+<body>
+<h2>New Fund Injection</h2>
+<div class="row">
+  <div>
+    <label for="f-date">Date <span class="req">*</span></label>
+    <input type="date" id="f-date">
+  </div>
+  <div>
+    <label for="f-purpose">Purpose <span class="req">*</span></label>
+    <select id="f-purpose">
+      <option>Tax &amp; Contributions Fund (transfer)</option>
+      <option>Tax Fund (transfer)</option>
+      <option>Contributions (paid online)</option>
+      <option>Tax Remittance</option>
+      <option>Contribution Remittance (SSS/PHIC/HDMF)</option>
+      <option>Expenses</option>
+      <option>Other</option>
+    </select>
+  </div>
+  <div>
+    <label for="f-amount">Amount (₱) <span class="req">*</span></label>
+    <input type="text" id="f-amount" inputmode="decimal" placeholder="0.00">
+  </div>
+</div>
+<div class="row">
+  <div class="wide" style="grid-column: span 2;">
+    <label for="f-description">Description</label>
+    <input type="text" id="f-description">
+  </div>
+  <div>
+    <label for="f-encoded-by">Encoded by</label>
+    <select id="f-encoded-by">
+      <option>Ayk</option>
+      <option>Atheena</option>
+      <option>Gladys</option>
+    </select>
+  </div>
+</div>
+<div class="footer-row">
+  <button id="save-btn">Save</button>
+  <span id="status-msg"></span>
+</div>
+
+<script>
+// Today's date in the office's time zone (Asia/Manila), not UTC --
+// toISOString() would give yesterday's date before 8am local.
+function todayManila() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+}
+function setStatus(msg, cls) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+function resetForm() {
+  // Every new entry starts fresh, dated today.
+  document.getElementById('f-date').value = todayManila();
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-description').value = '';
+  document.getElementById('f-purpose').selectedIndex = 0;
+  document.getElementById('f-encoded-by').value = 'Ayk';
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('save-btn');
+  const date = document.getElementById('f-date').value;
+  const amount = parseFloat(document.getElementById('f-amount').value.replace(/[₱,\s]/g, ''));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { setStatus('Enter a valid date.', 'error'); return; }
+  if (!(amount > 0)) { setStatus('Enter an amount greater than zero.', 'error'); return; }
+
+  btn.disabled = true;
+  setStatus('Saving…');
+  try {
+    await grist.docApi.applyUserActions([
+      ['AddRecord', 'Cash_Fund_Injections', null, {
+        date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+        office: 'Dagupan',
+        purpose: document.getElementById('f-purpose').value,
+        description: document.getElementById('f-description').value.trim(),
+        amount: amount,
+        encoded_by: document.getElementById('f-encoded-by').value
+      }]
+    ]);
+    setStatus('Saved ₱' + amount.toLocaleString('en-PH', { minimumFractionDigits: 2 }) + ' — ready for the next entry.', 'success');
+    resetForm();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// If the page stays open past midnight, roll an untouched date forward.
+document.addEventListener('visibilitychange', () => {
+  const d = document.getElementById('f-date');
+  if (document.visibilityState === 'visible' && !document.getElementById('f-amount').value) d.value = todayManila();
+});
+
+grist.ready({ requiredAccess: 'full' });
+resetForm();
+</script>
+</body>
+</html>
