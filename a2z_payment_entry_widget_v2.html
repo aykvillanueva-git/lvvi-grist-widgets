@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2Z New Payment Entry</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+
+  :root {
+    --bg: #fff;
+    --card-bg: #f7f6f2;
+    --border: #dfdcd3;
+    --muted: #6b6a66;
+    --text: #1f1e1c;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --success: #3b6d11;
+    --success-bg: #eaf3de;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #26282c;
+      --card-bg: #303338;
+      --border: #45484e;
+      --muted: #9a9da2;
+      --text: #eceef0;
+      --accent: #5b9bd5;
+      --accent-bg: #2b3a4a;
+      --danger: #e88a8a;
+      --danger-bg: #4a2b2b;
+      --success: #93c47d;
+      --success-bg: #2b3f26;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    margin: 0;
+    padding: 10px;
+    background: var(--bg);
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  h2.entry-emphasis {
+    font-size: 30px;
+    font-weight: 700;
+    margin: 0 0 7px;
+  }
+  h2.section-highlight {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  section {
+    margin-bottom: 11px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-of-type { border-bottom: none; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 6px 8px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  label .req { color: var(--danger); }
+  input, select {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    margin-top: 4px;
+  }
+  .date-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .date-wrap input[type="text"] {
+    padding-right: 34px;
+    font-variant-numeric: tabular-nums;
+  }
+  .date-wrap input.invalid {
+    border-color: var(--danger);
+  }
+  .date-pick-btn {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .date-pick-btn:hover { background: var(--card-bg); color: var(--text); }
+  .native-date-hidden {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    right: 4px;
+    top: 4px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 34px;
+  }
+  .metric {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 5px 6px;
+  }
+  .metric label { margin-bottom: 1px; }
+  .metric .value { font-size: 18px; font-weight: 600; }
+  .check-ok { color: var(--success); }
+  .check-error { color: var(--danger); }
+  .new-client-fields {
+    margin-top: 6px;
+    padding: 6px;
+    background: var(--accent-bg);
+    border-radius: var(--radius);
+  }
+  .new-client-fields .tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    display: block;
+  }
+  .hidden { display: none !important; }
+  .section-compact {
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+  }
+  .section-compact h2 {
+    margin-bottom: 3px;
+  }
+  .inline-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .inline-row > label {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+  .inline-row input {
+    flex: 1;
+    min-width: 160px;
+  }
+  .totals-inline h2 {
+    margin: 0;
+  }
+  .totals-inline .metric {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 3px 6px;
+  }
+  .totals-inline .metric label {
+    margin-bottom: 0;
+  }
+  button#save-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+  button#save-btn:hover:not(:disabled) { background: #0c447c; }
+  .footer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  #status-msg {
+    font-size: 13px;
+  }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  datalist { }
+  .cash-balance-inline {
+    display: none;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+  .cash-balance-inline strong { color: var(--text); }
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hint.warn { color: var(--danger); }
+  .subhead { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 0 3px; }
+  .subhead:first-of-type { margin-top: 0; }
+  .metric.bad .value { color: var(--danger); }
+  .metric.good .value { color: var(--success); }
+  .proj-info { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .proj-info strong { color: var(--text); }
+  label .opt { color: var(--muted); font-weight: normal; }
+
+</style>
+</head>
+<body>
+
+<!--
+  A2Z Renewables Corp. (DBA A2Z Solar) -- New Payment Entry, v2.
+  v2 (2026-10-25, Ayk): office lines cut to salaries, SSS/PHIC/HDMF, transportation, taxes & licenses,
+  office supplies; everything else goes through Others Amount + Others Description (Employee Benefits,
+  Asset Purchase, Cash Advance, Supplier Deposit/Advance, Miscellaneous Expenses), as in LVVI payments.
+  Grist doc "a2z daily cash report" (bGyqoZAsrtACQaTTTTcoSG), table Cash_disbursements.
+  Modeled on LVVI new_payment_entry_widget_v9. Differences:
+   - One input per cost line instead of LVVI's Others Amount + Others Description:
+     job costs (BOM materials, labor, job overhead), office G&A (FS lines) and non-expense items.
+   - Project (Ref:Projects) is required whenever any job-cost line is filled, so job costing works.
+   - Paid From (Ref:Cash_Accounts) with the account's live balance.
+   - Standing rule (Ayk 2026-10-25): technician basic pay stays in Office Salaries; only the
+     install-day premium is charged to the project as Labor Incentive / OT.
+-->
+
+<section>
+  <div class="title-row">
+    <h2 class="entry-emphasis">A2Z Payments</h2>
+    <span class="cash-balance-inline" id="cash-balance-bar">
+      <span id="cash-balance-text"></span>
+    </span>
+  </div>
+  <div class="row">
+    <div>
+      <label>Date <span class="req">*</span></label>
+      <div class="date-wrap">
+        <input type="text" id="f-date" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
+        <button type="button" class="date-pick-btn" id="f-date-pick" tabindex="-1" aria-label="Pick date">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </button>
+        <input type="date" id="f-date-native" class="native-date-hidden" tabindex="-1">
+      </div>
+    </div>
+    <div>
+      <label>Encoded by <span class="req">*</span></label>
+      <select id="f-encoded-by">
+        <option value="MEG">MEG</option>
+        <option value="Ayk">Ayk</option>
+        <option value="Erika">Erika</option>
+      </select>
+    </div>
+    <div>
+      <label>Paid From <span class="req">*</span></label>
+      <select id="f-account"></select>
+    </div>
+  </div>
+</section>
+
+<section class="section-compact">
+  <div class="inline-row">
+    <label>Project / Client <span class="opt">(required for job costs)</span></label>
+    <input type="text" id="f-project" list="project-list" placeholder="Blank for office expenses" autocomplete="off">
+  </div>
+  <datalist id="project-list"></datalist>
+  <div class="proj-info" id="proj-info"></div>
+</section>
+
+<section>
+  <div class="row">
+    <div>
+      <label>Payee / Supplier</label>
+      <input type="text" id="f-payee" placeholder="Who was paid">
+    </div>
+    <div style="grid-column: span 2;">
+      <label>Description / Ref</label>
+      <input type="text" id="f-description" placeholder="What was bought, OR/invoice no.">
+    </div>
+  </div>
+</section>
+
+<div id="groups"></div>
+
+<section class="section-compact">
+  <div class="inline-row totals-inline">
+    <h2>Totals &amp; status</h2>
+    <div class="metric"><label>Job cost</label><div class="value" id="calc-job">P0</div></div>
+    <div class="metric"><label>Office (G&amp;A)</label><div class="value" id="calc-ga">P0</div></div>
+    <div class="metric"><label>Not expense</label><div class="value" id="calc-nonexp">P0</div></div>
+    <div class="metric good"><label>Total paid</label><div class="value" id="calc-total">P0</div></div>
+  </div>
+  <div class="hidden"><div id="calc-label">&mdash;</div></div>
+</section>
+
+<div class="footer-row">
+  <button id="save-btn">Save entry</button>
+  <span id="status-msg"></span>
+</div>
+
+<script>
+// Column ids match Cash_disbursements. kind decides which total a line rolls into.
+const GROUPS = [
+  { title: 'Job cost — materials (BOM)', kind: 'job', fields: [
+    ['solar_panels', 'Solar Panels'], ['inverter', 'Inverter'], ['battery', 'Battery'],
+    ['protection_devices', 'Protection Devices'], ['mounting_kit', 'Mounting Kit'],
+    ['wires_cables', 'Wires & Cables'], ['accessories', 'Accessories & Consumables'],
+    ['other_materials', 'Other Materials'], ['freight_delivery', 'Freight & Delivery'] ] },
+  { title: 'Job cost — labor', kind: 'job', fields: [
+    ['direct_labor', 'Installer Wages'], ['labor_incentive', 'Labor Incentive / OT'],
+    ['subcontract_labor', 'Subcontract Labor'] ] },
+  { title: 'Job cost — job overhead', kind: 'job', fields: [
+    ['site_transport', 'Site Transport / Fuel'], ['site_meals', 'Site Meals / Lodging'],
+    ['permits_netmetering', 'Permits & Net-Metering'], ['equipment_rental', 'Tools / Equipment Rental'],
+    ['finders_fee', "Finder's Fee / Referral"], ['design_fee', 'Design Fee'],
+    ['project_mgmt', 'Project Management'], ['other_job_cost', 'Other Job Costs'] ] },
+  { title: 'Office expenses (G&A)', kind: 'ga', fields: [
+    ['salaries', 'Office Salaries'], ['sss', 'SSS (ER)'], ['phic', 'PHIC (ER)'], ['hdmf', 'HDMF (ER)'],
+    ['transport_travel', 'Transportation & Travel'], ['taxes_licenses', 'Taxes & Licenses'],
+    ['office_supplies', 'Office Supplies'] ] }
+];
+// Others Amount + Others Description (LVVI-style). Description decides which total it rolls into.
+const OTHERS_KIND = {
+  'Employee Benefits': 'ga',
+  'Miscellaneous Expenses': 'ga',
+  'Asset Purchase': 'nonexp',
+  'Cash Advance': 'nonexp',
+  'Supplier Deposit/Advance': 'nonexp'
+};
+const ALL_FIELDS = GROUPS.flatMap(g => g.fields.map(f => ({ col: f[0], kind: g.kind })));
+
+let projects = []; // {id, client, ref, price, jobCost}
+let accounts = []; // {id, name, balance}
+
+(function renderGroups() {
+  const host = document.getElementById('groups');
+  GROUPS.forEach(g => {
+    const sec = document.createElement('section');
+    const h = document.createElement('h2');
+    h.textContent = g.title;
+    sec.appendChild(h);
+    const row = document.createElement('div');
+    row.className = 'row';
+    g.fields.forEach(([col, label]) => {
+      const d = document.createElement('div');
+      const l = document.createElement('label');
+      l.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.step = '1'; inp.placeholder = '0'; inp.id = 'f-' + col;
+      inp.addEventListener('input', recompute);
+      d.appendChild(l); d.appendChild(inp);
+      row.appendChild(d);
+    });
+    sec.appendChild(row);
+    host.appendChild(sec);
+  });
+  const sec = document.createElement('section');
+  sec.innerHTML = '<h2>Others</h2><div class="row">' +
+    '<div><label>Others Amount</label><input type="number" id="f-others-amount" step="1" placeholder="0"></div>' +
+    '<div><label>Others Description</label><select id="f-others-desc"><option value="">&mdash;</option>' +
+    Object.keys(OTHERS_KIND).map(k => '<option value="' + k + '">' + k + '</option>').join('') +
+    '</select><div class="hint" id="others-hint"></div></div></div>';
+  host.appendChild(sec);
+  document.getElementById('f-others-amount').addEventListener('input', recompute);
+  document.getElementById('f-others-desc').addEventListener('change', recompute);
+})();
+
+function num(id) {
+  const el = document.getElementById(id);
+  const v = parseFloat(el ? el.value : '');
+  return isNaN(v) ? 0 : v;
+}
+function peso(n) { return 'P' + Math.round(n).toLocaleString(); }
+function peso2(n) {
+  return 'P' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function totals() {
+  const t = { job: 0, ga: 0, nonexp: 0 };
+  ALL_FIELDS.forEach(f => { t[f.kind] += num('f-' + f.col); });
+  const oAmt = num('f-others-amount');
+  const oKind = OTHERS_KIND[document.getElementById('f-others-desc').value];
+  if (oKind) t[oKind] += oAmt;
+  t.othersUnassigned = (oAmt && !oKind) ? oAmt : 0;
+  t.total = t.job + t.ga + t.nonexp;
+  return t;
+}
+function findProject(name) {
+  const key = (name || '').trim().toLowerCase();
+  if (!key) return null;
+  return projects.find(p => p.client.trim().toLowerCase() === key) ||
+         projects.find(p => (p.ref || '').trim().toLowerCase() === key) || null;
+}
+
+function recompute() {
+  const t = totals();
+  document.getElementById('calc-job').textContent = peso(t.job);
+  document.getElementById('calc-ga').textContent = peso(t.ga);
+  document.getElementById('calc-nonexp').textContent = peso(t.nonexp);
+  document.getElementById('calc-total').textContent = peso(t.total);
+  const oh = document.getElementById('others-hint');
+  const od = document.getElementById('f-others-desc').value;
+  oh.className = 'hint' + (t.othersUnassigned ? ' warn' : '');
+  oh.textContent = t.othersUnassigned ? 'Pick a description for the Others Amount.'
+    : (od ? (OTHERS_KIND[od] === 'ga' ? 'Counts as an office expense.' : 'Not an expense (excluded from net income).') : '');
+  const dateVal = document.getElementById('f-date').value;
+  const label = document.getElementById('f-description').value.trim() ||
+                document.getElementById('f-payee').value.trim() || 'No description';
+  document.getElementById('calc-label').textContent = (dateVal || '—') + ' - ' + label;
+  updateProjectInfo();
+}
+
+function updateProjectInfo() {
+  const info = document.getElementById('proj-info');
+  const name = document.getElementById('f-project').value.trim();
+  const match = findProject(name);
+  if (!name) { info.textContent = ''; info.className = 'proj-info'; return; }
+  if (!match) {
+    info.textContent = 'No matching project — add it in Projects (or the collection widget) first.';
+    info.className = 'proj-info hint warn';
+    return;
+  }
+  info.className = 'proj-info';
+  const after = match.jobCost + totals().job;
+  let html = 'Job cost so far <strong>' + peso(match.jobCost) + '</strong>';
+  if (totals().job) html += ' &rarr; <strong>' + peso(after) + '</strong> after this entry';
+  if (match.price) {
+    const margin = (match.price - after) / match.price * 100;
+    html += ' &middot; contract <strong>' + peso(match.price) + '</strong> &middot; margin <strong>' + margin.toFixed(1) + '%</strong>';
+  }
+  info.innerHTML = html;
+}
+
+function updateCashBar() {
+  const bar = document.getElementById('cash-balance-bar');
+  const text = document.getElementById('cash-balance-text');
+  const id = parseInt(document.getElementById('f-account').value, 10);
+  const acct = accounts.find(a => a.id === id);
+  if (!acct) { bar.style.display = 'none'; return; }
+  text.innerHTML = '\u{1F4B5} ' + acct.name + ' (live): <strong>' + peso2(acct.balance) + '</strong>';
+  bar.style.display = 'inline-flex';
+}
+
+['f-date', 'f-description', 'f-payee', 'f-project'].forEach(id => {
+  document.getElementById(id).addEventListener('input', recompute);
+});
+document.getElementById('f-account').addEventListener('change', updateCashBar);
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function wireDateField(textId, nativeId, btnId) {
+  const textEl = document.getElementById(textId);
+  const nativeEl = document.getElementById(nativeId);
+  const btnEl = document.getElementById(btnId);
+  btnEl.addEventListener('click', () => {
+    if (DATE_RE.test(textEl.value)) nativeEl.value = textEl.value;
+    if (nativeEl.showPicker) { nativeEl.showPicker(); } else { nativeEl.focus(); nativeEl.click(); }
+  });
+  nativeEl.addEventListener('input', () => {
+    if (nativeEl.value) {
+      textEl.value = nativeEl.value;
+      textEl.classList.remove('invalid');
+      textEl.dispatchEvent(new Event('input'));
+    }
+  });
+  textEl.addEventListener('blur', () => {
+    if (textEl.value && !DATE_RE.test(textEl.value)) textEl.classList.add('invalid');
+    else textEl.classList.remove('invalid');
+  });
+  textEl.addEventListener('input', () => textEl.classList.remove('invalid'));
+}
+wireDateField('f-date', 'f-date-native', 'f-date-pick');
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+async function loadAccounts() {
+  try {
+    const t = await grist.docApi.fetchTable('Cash_Accounts');
+    const prev = document.getElementById('f-account').value;
+    accounts = (t.id || []).map((id, i) => ({ id, name: t.account[i] || ('#' + id), balance: t.balance[i] || 0 }));
+    const sel = document.getElementById('f-account');
+    sel.innerHTML = '';
+    accounts.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+    updateCashBar();
+  } catch (e) {
+    setStatus('Could not load Cash_Accounts: ' + (e && e.message ? e.message : e), 'error');
+  }
+}
+
+async function loadProjects() {
+  try {
+    const t = await grist.docApi.fetchTable('Projects');
+    projects = (t.id || []).map((id, i) => ({
+      id,
+      client: t.client[i] || '',
+      ref: t.ref_no[i] || '',
+      price: t.contract_price[i] || 0,
+      jobCost: t.job_cost[i] || 0,
+      status: t.status[i] || ''
+    }));
+    const dl = document.getElementById('project-list');
+    dl.innerHTML = '';
+    [...projects].sort((a, b) => a.client.localeCompare(b.client, undefined, { sensitivity: 'base' }))
+      .forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.client;
+        opt.label = [p.ref, p.status].filter(Boolean).join(' · ');
+        dl.appendChild(opt);
+      });
+    updateProjectInfo();
+  } catch (e) { /* autocomplete just won't populate */ }
+}
+
+async function loadDefaults() {
+  let dateSet = false;
+  try {
+    const t = await grist.docApi.fetchTable('Cash_disbursements');
+    const ids = t.id || [];
+    if (ids.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < ids.length; i++) if (ids[i] > ids[maxIdx]) maxIdx = i;
+      if (t.date[maxIdx]) {
+        document.getElementById('f-date').value = new Date(t.date[maxIdx] * 1000).toISOString().slice(0, 10);
+        dateSet = true;
+      }
+      if (t.encoded_by[maxIdx]) document.getElementById('f-encoded-by').value = t.encoded_by[maxIdx];
+      if (t.account[maxIdx]) document.getElementById('f-account').value = t.account[maxIdx];
+    }
+  } catch (e) { /* fall through */ }
+  if (!dateSet) document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  updateCashBar();
+  recompute();
+}
+
+function resetFormAfterSave() {
+  ['f-payee', 'f-description'].forEach(id => { document.getElementById(id).value = ''; });
+  ALL_FIELDS.forEach(f => { document.getElementById('f-' + f.col).value = ''; });
+  document.getElementById('f-others-amount').value = '';
+  document.getElementById('f-others-desc').value = '';
+  // Keep the project: a run of receipts for one job is the common case.
+  recompute();
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const date = document.getElementById('f-date').value;
+  const encodedBy = document.getElementById('f-encoded-by').value;
+  const accountId = parseInt(document.getElementById('f-account').value, 10);
+  const projName = document.getElementById('f-project').value.trim();
+  const t = totals();
+
+  if (!date || !encodedBy || !accountId) {
+    setStatus('Fill in date, encoded by and paid from before saving.', 'error');
+    return;
+  }
+  if (!DATE_RE.test(date)) { setStatus('Date must be in YYYY-MM-DD format.', 'error'); return; }
+  if (t.othersUnassigned) { setStatus('Others Amount is filled in \u2014 pick an Others Description before saving.', 'error'); return; }
+  if (t.total <= 0) { setStatus('Enter at least one amount before saving.', 'error'); return; }
+  const match = findProject(projName);
+  if (t.job > 0 && !match) {
+    setStatus(projName ? 'Project "' + projName + '" not found — add it first.'
+                       : 'Job-cost lines are filled — pick the project before saving.', 'error');
+    return;
+  }
+  if (projName && !match) {
+    setStatus('Project "' + projName + '" not found — clear it or add the project first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving...', '');
+  try {
+    const rec = {
+      encoded_by: encodedBy,
+      date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+      account: accountId,
+      payee: document.getElementById('f-payee').value.trim(),
+      description: document.getElementById('f-description').value.trim()
+    };
+    if (match) rec.project = match.id;
+    ALL_FIELDS.forEach(f => { const v = num('f-' + f.col); if (v) rec[f.col] = v; });
+    if (num('f-others-amount')) {
+      rec.others_amount = num('f-others-amount');
+      rec.others_description = document.getElementById('f-others-desc').value;
+    }
+    await grist.docApi.applyUserActions([['AddRecord', 'Cash_disbursements', null, rec]]);
+    setStatus('Saved: ' + document.getElementById('calc-label').textContent + ' — ' + peso(t.total), 'success');
+    resetFormAfterSave();
+    loadProjects();
+    loadAccounts();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+grist.ready({ requiredAccess: 'full' });
+loadAccounts().then(loadDefaults);
+loadProjects();
+
+setInterval(() => { loadAccounts(); loadProjects(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { loadAccounts(); loadProjects(); }
+});
+window.addEventListener('focus', () => { loadAccounts(); loadProjects(); });
+</script>
+</body>
+</html>
