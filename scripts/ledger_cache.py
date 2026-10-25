@@ -370,6 +370,11 @@ def _same(old, new):
 
 
 def refresh():
+    try:  # client payments made through office Payments -> remittance tables (per Ayk 2026-10-25)
+        import payments_mirror
+        payments_mirror.mirror()
+    except Exception as e:  # noqa: BLE001 -- never block the ledger rebuild
+        print(f"::error::payments mirror failed: {e}", file=sys.stderr)
     try:
         ensure_variance_rows()
     except Exception as e:  # noqa: BLE001 -- never block the ledger rebuild
