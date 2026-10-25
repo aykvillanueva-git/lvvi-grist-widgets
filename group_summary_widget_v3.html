@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LVVI Group Summary</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{
+    --navy:#1c2b3a; --navy-soft:#2e4257; --teal:#1f7a6c; --teal-dark:#155e53;
+    --paper:#f6f5f1; --card:#ffffff; --line:#e2e0d8; --ink:#20242b; --ink-soft:#5b6470;
+    --warn:#b3491f; --warn-bg:#fbe9e1; --ok-bg:#e9f3ef; --divider:#f0efe9; --hover-bg:#fafaf7; --pill-bg:#eef1f4;
+    --coll-bg:#e3f1ec; --coll-ink:#155e53; --remit-bg:#fde9d0; --remit-ink:#8a5a1e;
+    --input-bg:#ffffff; --radius:8px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","Consolas","Menlo",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#5b9bd5; --navy-soft:#4a86b8; --teal:#2f9c88; --teal-dark:#3fb39e;
+      --paper:#1c1e21; --card:#26282c; --line:#40434a; --ink:#eceef0; --ink-soft:#9a9da2;
+      --warn:#e2825a; --warn-bg:#4a2a1f; --ok-bg:#1f3d36; --divider:#34373c; --hover-bg:#303338; --pill-bg:#26313a;
+      --coll-bg:#1f3d36; --coll-ink:#7ee0c9; --remit-bg:#4a3520; --remit-ink:#f0c48a; --input-bg:#1c1e21;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.4;padding:14px;}
+  h1{font-size:16px;font-weight:700;color:var(--navy);margin:0 0 2px 0;}
+  .subtitle{color:var(--ink-soft);font-size:12px;margin:0 0 12px 0;}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;}
+  .bar .field{flex:1 1 180px;}
+  label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+  select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:var(--font);background:var(--input-bg);color:var(--ink);}
+  button{font-family:var(--font);font-size:13px;font-weight:600;border-radius:6px;border:1px solid var(--line);padding:7px 12px;cursor:pointer;background:var(--card);color:var(--ink-soft);}
+  button:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+  .tile .k{font-size:11px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .tile .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px;}
+  .tile .s{font-size:11px;color:var(--ink-soft);}
+  .v.pos{color:var(--warn);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-bottom:12px;}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--navy-soft);margin:0 0 8px 0;display:flex;justify-content:space-between;gap:8px;align-items:center;}
+  .scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap;background:var(--card);}
+  thead th.num{text-align:right;}
+  tbody td{padding:7px 8px;border-bottom:1px solid var(--divider);vertical-align:top;}
+  tbody tr.main{cursor:pointer;}
+  tbody tr.main:hover{background:var(--hover-bg);}
+  tbody tr.main.open{background:var(--ok-bg);}
+  tbody tr.member td{font-size:12px;padding-top:4px;padding-bottom:4px;}
+  .name.sub{font-weight:500;padding-left:6px;}
+  tfoot td{padding:8px;font-weight:700;border-top:2px solid var(--line);}
+  .amount{font-family:var(--mono);text-align:right;white-space:nowrap;}
+  .amount.pos{color:var(--warn);font-weight:700;}
+  .name{font-weight:600;}
+  .code{color:var(--ink-soft);font-family:var(--mono);font-size:11px;}
+  .pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;font-weight:600;white-space:nowrap;background:var(--pill-bg);color:var(--navy-soft);}
+  .pill.leave{background:var(--warn-bg);color:var(--warn);}
+  .chev{display:inline-block;width:12px;color:var(--ink-soft);transition:transform .15s;}
+  tr.open .chev{transform:rotate(90deg);}
+  tr.detail td{background:var(--hover-bg);padding:12px;}
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;}
+  .dbox{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;}
+  .dbox h3{margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .dbox.coll h3{color:var(--coll-ink);} .dbox.remit h3{color:var(--remit-ink);}
+  .line{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0;}
+  .line .a{font-family:var(--mono);white-space:nowrap;}
+  .line.sub{padding-left:12px;color:var(--ink-soft);font-size:12px;}
+  .line.tot{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;font-weight:700;}
+  .sect{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);margin:8px 0 2px;letter-spacing:.04em;}
+  .recent{max-height:220px;overflow:auto;}
+  .recent table{font-size:12px;}
+  .recent td{padding:4px 6px;}
+  .muted{color:var(--ink-soft);}
+  .note{font-size:11px;color:var(--ink-soft);margin-top:6px;}
+  .empty{padding:24px;text-align:center;color:var(--ink-soft);}
+  .err{padding:12px;background:var(--warn-bg);color:var(--warn);border-radius:6px;}
+  @media print{ body{background:#fff;} .bar button{display:none;} tr.detail{break-inside:avoid;} }
+</style>
+</head>
+<body>
+  <h1 id="title">Group Summary</h1>
+  <p class="subtitle" id="subtitle">YTD 2026 · collections, remittances and handler per affiliate</p>
+
+  <div class="bar">
+    <div class="field"><label for="grp">Group</label><select id="grp"></select></div>
+    <div class="field"><label for="hdl">Handler</label><select id="hdl"><option value="">All handlers</option></select></div>
+    <button id="expandAll" type="button">Expand all</button>
+    <button id="printBtn" type="button">Print</button>
+  </div>
+
+  <div id="tiles" class="tiles"></div>
+
+  <div class="card">
+    <div class="card-title"><span>Per affiliate</span><span class="muted" id="count"></span></div>
+    <div class="scroll"><table id="tbl"></table></div>
+    <div class="note" id="syncNote"></div>
+  </div>
+
+  <div class="card" id="hdlCard">
+    <div class="card-title"><span>By handler</span></div>
+    <div class="scroll"><table id="hdlTbl"></table></div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+  const YEAR = 2026;
+  const ON_LEAVE = ['Gladys'];
+  const OWN_ACCT = "Client's Own Account (no LVVI custody)";
+  const $ = id => document.getElementById(id);
+  const peso = n => { const v = Math.round(n || 0); return (v < 0 ? '-₱' : '₱') + Math.abs(v).toLocaleString('en-US'); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const store = {get(k){try{return localStorage.getItem(k);}catch(e){return null;}}, set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+
+  let clients = [], openIds = new Set(), allOpen = false, syncTimes = [];
+
+  // Columnar Grist table -> array of row objects
+  function rows(t){
+    const keys = Object.keys(t), n = (t.id || []).length, out = [];
+    for (let i = 0; i < n; i++){ const r = {}; keys.forEach(k => r[k] = t[k][i]); out.push(r); }
+    return out;
+  }
+  function yearOf(epoch){ return epoch ? new Date(epoch * 1000).getUTCFullYear() : null; }
+
+  async function load(){
+    try {
+      const C = rows(await grist.docApi.fetchTable('Clients'));
+      let L = [];
+      try { L = rows(await grist.docApi.fetchTable('Tax_Contri_Ledger')); } catch(e){ L = []; }
+      const hasYtd = C.length && ('ytd_monthly' in C[0]);
+      let dcc = null;
+      if (!hasYtd){ dcc = rows(await grist.docApi.fetchTable('Daily_cash_collections')); }
+
+      const ledgerBy = {};
+      L.forEach(r => { if (r.client) ledgerBy[r.client] = r; });
+
+      // Fallback (no ytd_* columns, e.g. Pozorrubio): sum live 2026 collection rows per client
+      const fb = {};
+      if (dcc){
+        dcc.forEach(r => {
+          if (!r.client || yearOf(r.B) !== YEAR) return;
+          const f = fb[r.client] || (fb[r.client] = {monthly:0,quarterly:0,annual:0,legacy:0,other:0,iar:0,printing:0,tax:0,sss:0,phic:0,hdmf:0,permits:0});
+          f.monthly += r.monthly_fees||0; f.quarterly += r.quarterly_fees||0; f.annual += r.annual_fees||0;
+          f.legacy += r.quarterly_annual||0; f.other += r.other_fees||0; f.iar += r.iar_fees||0; f.printing += r.printing||0;
+          f.tax += r.tax_balancing||0; f.sss += r.sss||0; f.phic += r.phic||0; f.hdmf += r.hdmf||0; f.permits += r.others_permits||0;
+        });
+      }
+
+      syncTimes = [];
+      clients = C.filter(c => c.client_group).map(c => {
+        const coll = hasYtd ? {
+          monthly:c.ytd_monthly||0, quarterly:c.ytd_quarterly||0, annual:c.ytd_annual||0, legacy:c.ytd_qtr_annual_legacy||0,
+          other:c.ytd_other||0, iar:c.ytd_iar||0, printing:c.ytd_printing||0, tax:c.ytd_tax||0,
+          sss:c.ytd_sss||0, phic:c.ytd_phic||0, hdmf:c.ytd_hdmf||0, permits:c.ytd_permits||0
+        } : (fb[c.id] || {monthly:0,quarterly:0,annual:0,legacy:0,other:0,iar:0,printing:0,tax:0,sss:0,phic:0,hdmf:0,permits:0});
+        coll.fees = coll.monthly + coll.quarterly + coll.annual + coll.legacy + coll.other + coll.iar + coll.printing;
+        coll.contri = coll.sss + coll.phic + coll.hdmf + coll.permits;
+
+        // Remittances from the ledger cache (Taxes + Contributions docs), 2026 only
+        const led = ledgerBy[c.id];
+        const rem = {taxByForm:{}, tax:0, sss:0, phic:0, hdmf:0, blended:0, contri:0, own:0, byChannel:{}, byMember:{}, lines:[]};
+        let lastAct = null, members = [];
+        const memTax = {}, memCon = {};
+        if (led){
+          if (led.synced_at) syncTimes.push(led.synced_at);
+          let p = {}; try { p = JSON.parse(led.txns_json || '{}'); } catch(e){}
+          members = p.members || [];
+          (p.txns || []).forEach(t => {
+            if (!t.d || +t.d.slice(0,4) !== YEAR) return;
+            if (!lastAct || t.d > lastAct) lastAct = t.d;
+            if (t.k !== 'R') return;
+            const a = t.a || 0;
+            if (t.ch === OWN_ACCT) rem.own += a;
+            const ch = t.ch || 'Not tagged';
+            rem.byChannel[ch] = (rem.byChannel[ch] || 0) + a;
+            const mem = t.n || (c.client_name || c.A || 'Main entity');
+            rem.byMember[mem] = (rem.byMember[mem] || 0) + a;
+            if (t.n){ if (t.g === 'T') memTax[t.n] = (memTax[t.n] || 0) + a; else memCon[t.n] = (memCon[t.n] || 0) + a; }
+            if (t.g === 'T'){
+              const f = (t.t || 'other').toUpperCase();
+              rem.taxByForm[f] = (rem.taxByForm[f] || 0) + a; rem.tax += a;
+            } else {
+              if (t.t === 'SSS') rem.sss += a; else if (t.t === 'PHIC') rem.phic += a; else if (t.t === 'HDMF') rem.hdmf += a; else rem.blended += a;
+              rem.contri += a;
+            }
+            rem.lines.push(t);
+          });
+          rem.lines.sort((a,b) => (b.d||'').localeCompare(a.d||''));
+        }
+        const ownTax = rem.lines.filter(t => t.g==='T' && t.ch===OWN_ACCT).reduce((s,t)=>s+(t.a||0),0);
+        const ownCon = rem.own - ownTax;
+        return {
+          id:c.id, code:c.A || '', name:c.client_name || c.A || ('#'+c.id), handler:c.C || '', group:c.client_group,
+          coll, rem, lastAct,
+          members: members.map(m => ({name: m.n, trade: m.tn, code: m.c, tax: memTax[m.n] || 0, con: memCon[m.n] || 0})),
+          taxVar: coll.tax - (rem.tax - ownTax),
+          conVar: coll.contri - (rem.contri - ownCon)
+        };
+      });
+      buildFilters();
+      render();
+    } catch(e){
+      $('tbl').innerHTML = '<tr><td><div class="err">Could not load data: ' + esc(e.message || e) + '. This widget needs <b>Full document access</b> (Widget options → Access level).</div></td></tr>';
+    }
+  }
+
+  function buildFilters(){
+    const groups = [...new Set(clients.map(c => c.group))].sort();
+    const sel = $('grp'), cur = sel.value || store.get('lvvi_grp') || 'Ratel Group';
+    sel.innerHTML = groups.length ? groups.map(g => '<option>' + esc(g) + '</option>').join('') : '<option value="">(no groups set)</option>';
+    if (groups.includes(cur)) sel.value = cur;
+    buildHandlers();
+  }
+  function buildHandlers(){
+    const g = $('grp').value, h = $('hdl'), cur = h.value;
+    const hs = [...new Set(clients.filter(c => c.group === g).map(c => c.handler || '(none)'))].sort();
+    h.innerHTML = '<option value="">All handlers</option>' + hs.map(x => '<option>' + esc(x) + '</option>').join('');
+    if (hs.includes(cur)) h.value = cur;
+  }
+
+  function visible(){
+    const g = $('grp').value, h = $('hdl').value;
+    return clients.filter(c => c.group === g && (!h || (c.handler || '(none)') === h))
+      .sort((a,b) => (b.coll.fees + b.coll.tax + b.coll.contri) - (a.coll.fees + a.coll.tax + a.coll.contri));
+  }
+
+  function sum(list, f){ return list.reduce((s,c) => s + f(c), 0); }
+
+  function render(){
+    const g = $('grp').value, list = visible();
+    $('title').textContent = (g || 'Group') + ' — Summary';
+    const nMem = list.reduce((s,c) => s + c.members.length, 0), nAll = list.length + nMem;
+    $('count').textContent = nAll + ' affiliate' + (nAll === 1 ? '' : 's') + (nMem ? ' (' + nMem + ' filed under a parent)' : '');
+
+    const T = {
+      fees: sum(list, c => c.coll.fees), taxC: sum(list, c => c.coll.tax), taxR: sum(list, c => c.rem.tax),
+      conC: sum(list, c => c.coll.contri), conR: sum(list, c => c.rem.contri),
+      taxV: sum(list, c => c.taxVar), conV: sum(list, c => c.conVar)
+    };
+    $('tiles').innerHTML = [
+      ['Fees collected', T.fees, 'Retainer, other, IAR, printing'],
+      ['Tax collected', T.taxC, 'Held for client taxes'],
+      ['Tax remitted', T.taxR, 'Paid to BIR / LGU'],
+      ['Contri & permits collected', T.conC, 'SSS, PHIC, HDMF, permits'],
+      ['Contri & permits remitted', T.conR, 'Paid to agencies'],
+      ['Unremitted balance', T.taxV + T.conV, 'Tax ' + peso(T.taxV) + ' · Contri ' + peso(T.conV), true]
+    ].map(([k,v,s,flag]) => '<div class="tile"><div class="k">' + k + '</div><div class="v' + (flag && Math.round(v) > 0 ? ' pos' : '') + '">' + peso(v) + '</div><div class="s">' + esc(s) + '</div></div>').join('');
+
+    if (!list.length){
+      $('tbl').innerHTML = '<tr><td class="empty">No affiliates in this group yet. Set <b>Client Group</b> on each member in the Clients table.</td></tr>';
+      $('hdlTbl').innerHTML = ''; $('syncNote').textContent = ''; return;
+    }
+
+    let h = '<thead><tr><th></th><th>Affiliate</th><th>Handler</th><th class="num">Fees</th><th class="num">Tax coll.</th><th class="num">Tax remit.</th><th class="num">Contri coll.</th><th class="num">Contri remit.</th><th class="num">Unremitted</th></tr></thead><tbody>';
+    list.forEach(c => {
+      const open = allOpen || openIds.has(c.id), v = c.taxVar + c.conVar;
+      h += '<tr class="main' + (open ? ' open' : '') + '" data-id="' + c.id + '">' +
+        '<td><span class="chev">▸</span></td>' +
+        '<td><div class="name">' + esc(c.name) + '</div><div class="code">' + esc(c.code) + (c.lastAct ? ' · last activity ' + esc(c.lastAct) : '') + '</div></td>' +
+        '<td>' + handlerPill(c.handler) + '</td>' +
+        '<td class="amount">' + peso(c.coll.fees) + '</td>' +
+        '<td class="amount">' + peso(c.coll.tax) + '</td>' +
+        '<td class="amount">' + peso(c.rem.tax) + '</td>' +
+        '<td class="amount">' + peso(c.coll.contri) + '</td>' +
+        '<td class="amount">' + peso(c.rem.contri) + '</td>' +
+        '<td class="amount' + (Math.round(v) > 0 ? ' pos' : '') + '">' + peso(v) + '</td></tr>';
+      c.members.forEach(m => {
+        h += '<tr class="member"><td></td><td><div class="name sub">↳ ' + esc(m.name) + '</div><div class="code">' + esc(m.trade || m.code) + ' · filed under ' + esc(c.code) + '</div></td>' +
+          '<td>' + handlerPill(c.handler) + '</td>' +
+          '<td class="amount muted">—</td><td class="amount muted">—</td>' +
+          '<td class="amount">' + (m.tax ? peso(m.tax) : '<span class="muted">none yet</span>') + '</td>' +
+          '<td class="amount muted">—</td>' +
+          '<td class="amount">' + (m.con ? peso(m.con) : '<span class="muted">—</span>') + '</td>' +
+          '<td class="amount muted"></td></tr>';
+      });
+      if (open) h += '<tr class="detail"><td colspan="9">' + detail(c) + '</td></tr>';
+    });
+    h += '</tbody><tfoot><tr><td></td><td>Total</td><td></td>' +
+      [T.fees, T.taxC, T.taxR, T.conC, T.conR, T.taxV + T.conV].map(x => '<td class="amount">' + peso(x) + '</td>').join('') + '</tr></tfoot>';
+    $('tbl').innerHTML = h;
+
+    // Handler rollup
+    const byH = {};
+    list.forEach(c => {
+      const k = c.handler || '(none)', o = byH[k] || (byH[k] = {n:0, fees:0, coll:0, rem:0, v:0});
+      o.n += 1 + c.members.length; o.fees += c.coll.fees; o.coll += c.coll.tax + c.coll.contri; o.rem += c.rem.tax + c.rem.contri; o.v += c.taxVar + c.conVar;
+    });
+    $('hdlTbl').innerHTML = '<thead><tr><th>Handler</th><th class="num">Affiliates</th><th class="num">Fees</th><th class="num">Tax+contri coll.</th><th class="num">Tax+contri remit.</th><th class="num">Unremitted</th></tr></thead><tbody>' +
+      Object.keys(byH).sort().map(k => { const o = byH[k]; return '<tr><td>' + handlerPill(k === '(none)' ? '' : k) + '</td><td class="amount">' + o.n + '</td><td class="amount">' + peso(o.fees) + '</td><td class="amount">' + peso(o.coll) + '</td><td class="amount">' + peso(o.rem) + '</td><td class="amount' + (Math.round(o.v) > 0 ? ' pos' : '') + '">' + peso(o.v) + '</td></tr>'; }).join('') + '</tbody>';
+
+    const st = syncTimes.slice().sort();
+    $('syncNote').innerHTML = 'Collections are live (Jan–Jun frozen + live rows). Remittances come from the Tax & Contribution ledger cache' +
+      (st.length ? ', synced ' + esc(st[0]) + (st[0] !== st[st.length-1] ? ' to ' + esc(st[st.length-1]) : '') : '') +
+      ' — run a refresh to update. Members not on the office roster (↳ rows) are filed under their parent company: their tax money is collected through the parent, so only their remittances show separately and are already inside the parent\u2019s totals. Remittances paid from the client’s own account are listed but not counted as unremitted. Click a row for the breakdown.';
+  }
+
+  function handlerPill(hn){
+    if (!hn) return '<span class="muted">—</span>';
+    const leave = ON_LEAVE.includes(hn);
+    return '<span class="pill' + (leave ? ' leave' : '') + '"' + (leave ? ' title="On leave — consider reassigning"' : '') + '>' + esc(hn) + (leave ? ' (on leave)' : '') + '</span>';
+  }
+
+  function ln(label, a, cls){ return Math.round(a) || cls === 'tot' ? '<div class="line' + (cls ? ' ' + cls : '') + '"><span>' + esc(label) + '</span><span class="a">' + peso(a) + '</span></div>' : ''; }
+
+  function detail(c){
+    const k = c.coll, r = c.rem;
+    let coll = '<div class="dbox coll"><h3>Collections</h3>' +
+      '<div class="sect">Fees (revenue)</div>' +
+      ln('Monthly fees', k.monthly, 'sub') + ln('Quarterly fees', k.quarterly, 'sub') + ln('Annual fees (ITR)', k.annual, 'sub') +
+      ln('Qtr/Annual (legacy)', k.legacy, 'sub') + ln('Other fees', k.other, 'sub') + ln('IAR fees', k.iar, 'sub') + ln('Printing', k.printing, 'sub') +
+      ln('Fees total', k.fees, 'tot') +
+      '<div class="sect">Pass-through (held for client)</div>' +
+      ln('Taxes', k.tax, 'sub') + ln('SSS', k.sss, 'sub') + ln('PHIC', k.phic, 'sub') + ln('HDMF', k.hdmf, 'sub') + ln('Permits / others', k.permits, 'sub') +
+      ln('Pass-through total', k.tax + k.contri, 'tot') +
+      ln('Grand total collected', k.fees + k.tax + k.contri, 'tot') + '</div>';
+
+    const forms = Object.keys(r.taxByForm).sort();
+    let rem = '<div class="dbox remit"><h3>Remittances</h3>' +
+      '<div class="sect">Taxes (by BIR form)</div>' +
+      (forms.length ? forms.map(f => ln(f, r.taxByForm[f], 'sub')).join('') : '<div class="line sub"><span>None recorded</span></div>') +
+      ln('Taxes remitted', r.tax, 'tot') +
+      '<div class="sect">Contributions & permits</div>' +
+      ln('SSS', r.sss, 'sub') + ln('PHIC', r.phic, 'sub') + ln('HDMF', r.hdmf, 'sub') + ln('Permits / blended (unsplit)', r.blended, 'sub') +
+      ln('Contri & permits remitted', r.contri, 'tot') +
+      (Object.keys(r.byMember).length > 1 ? '<div class="sect">Remitted for (entity / member)</div>' +
+        Object.keys(r.byMember).sort((a,b) => r.byMember[b] - r.byMember[a]).map(m => ln(m, r.byMember[m], 'sub')).join('') : '') +
+      '<div class="sect">Paid through</div>' +
+      Object.keys(r.byChannel).sort().map(ch => ln(ch, r.byChannel[ch], 'sub')).join('') +
+      '<div class="sect">Unremitted (collected − remitted)</div>' +
+      ln('Taxes', c.taxVar, 'sub') + ln('Contributions & permits', c.conVar, 'sub') + ln('Total unremitted', c.taxVar + c.conVar, 'tot') + '</div>';
+
+    const recent = r.lines.slice(0, 40);
+    let lines = '<div class="dbox"><h3>Recent remittances</h3>' + (recent.length ?
+      '<div class="recent"><table><tbody>' + recent.map(t =>
+        '<tr><td>' + esc(t.d) + '</td><td>' + esc(t.g === 'T' ? (t.t || 'Tax').toUpperCase() : (t.t === 'Blended/Unspecified' ? 'Permits/blended' : t.t)) +
+        (t.p ? ' <span class="muted">(' + esc(t.p.slice(0,7)) + ')</span>' : '') + (t.n ? '<div class="code">' + esc(t.n) + '</div>' : '') + '</td><td class="amount">' + peso(t.a) + '</td><td class="muted">' + esc((t.ch || '').replace(/ \(.*\)$/, '')) + '</td></tr>').join('') +
+      '</tbody></table></div>' : '<div class="muted">None recorded in ' + YEAR + '.</div>') + '</div>';
+
+    return '<div class="dgrid">' + coll + rem + lines + '</div>';
+  }
+
+  // Events
+  $('grp').addEventListener('change', () => { store.set('lvvi_grp', $('grp').value); openIds.clear(); buildHandlers(); render(); });
+  $('hdl').addEventListener('change', render);
+  $('expandAll').addEventListener('click', () => { allOpen = !allOpen; if (!allOpen) openIds.clear(); $('expandAll').textContent = allOpen ? 'Collapse all' : 'Expand all'; render(); });
+  $('printBtn').addEventListener('click', () => window.print());
+  $('tbl').addEventListener('click', e => {
+    const tr = e.target.closest('tr.main'); if (!tr) return;
+    const id = +tr.dataset.id;
+    if (allOpen){ allOpen = false; $('expandAll').textContent = 'Expand all'; list0().forEach(c => openIds.add(c.id)); }
+    openIds.has(id) ? openIds.delete(id) : openIds.add(id);
+    render();
+  });
+  function list0(){ return visible(); }
+
+  grist.ready({requiredAccess: 'full'});
+  let t = null;
+  grist.onRecords(() => { clearTimeout(t); t = setTimeout(load, 300); });
+  load();
+})();
+</script>
+</body>
+</html>

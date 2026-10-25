@@ -235,8 +235,31 @@ def collect_transactions():
     return out
 
 
+def group_members(source_id_field):
+    """Office client id of each corporate parent -> its Taxes-doc members (all of them,
+    including members with no transactions yet), for the Group Summary widget."""
+    tax_clients = clients_by_id(TAX_DOC)
+    out = {}
+    for cid, f in tax_clients.items():
+        pid = f.get("related_corporate_client") or 0
+        if not pid or pid == cid or pid not in tax_clients:
+            continue
+        ocid = tax_clients[pid].get(source_id_field) or 0
+        if not ocid:
+            continue
+        out.setdefault(ocid, []).append({
+            "n": f.get("client_name") or f.get("A") or "",
+            "tn": f.get("tradename") or "",
+            "c": f.get("A") or "",
+        })
+    for v in out.values():
+        v.sort(key=lambda m: m["n"])
+    return out
+
+
 def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
     office_clients = clients_by_id(office_doc)
+    members_of = group_members(source_id_field)
     by_name = {}
     for cid, f in office_clients.items():
         by_name.setdefault(norm(f.get("client_name")), cid)
@@ -282,8 +305,10 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
             "contri_remitted": round(sums[("S", "R")], 2),
             "txn_count": len(tx),
             "last_activity": last_ts,
-            "txns_json": json.dumps({"code": g["code"], "office": office, "txns": tx},
-                                    separators=(",", ":")),
+            "txns_json": json.dumps(
+                dict({"code": g["code"], "office": office, "txns": tx},
+                     **({"members": members_of[g["client"]]} if g["client"] in members_of else {})),
+                separators=(",", ":")),
             "synced_at": synced_at,
         }
     return rows, skipped
