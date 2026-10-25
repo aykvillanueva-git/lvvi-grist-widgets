@@ -251,6 +251,7 @@ def group_members(source_id_field):
             "n": f.get("client_name") or f.get("A") or "",
             "tn": f.get("tradename") or "",
             "c": f.get("A") or "",
+            "oid": f.get(source_id_field) or 0,  # member's own office client id, if any
         })
     for v in out.values():
         v.sort(key=lambda m: m["n"])
