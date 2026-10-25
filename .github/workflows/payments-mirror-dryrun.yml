@@ -1,0 +1,15 @@
+name: Payments mirror (dry run)
+on:
+  workflow_dispatch: {}
+jobs:
+  dry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dry run
+        env:
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+        run: cd scripts && python3 payments_mirror.py --dry-run
