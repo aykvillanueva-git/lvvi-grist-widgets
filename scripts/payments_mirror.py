@@ -47,7 +47,7 @@ def mirror(dry_run=False):
     con_rem = list_all(CONTRIB_DOC, "Contribution_Remittances")
     linked = {f.get("payments_ref") for f in
               (r["fields"] for r in tax_rem + con_rem) if f.get("payments_ref")}
-    used = set()  # remittance ids already matched this run
+    used = set()  # ("T"|"S", remittance id) already matched this run
 
     new_tax, new_con, stamp_tax, stamp_con = [], [], [], []
     for office, (doc_id, src_field) in OFFICE_DOCS.items():
@@ -76,17 +76,22 @@ def mirror(dry_run=False):
                 parts.append(("S", "Blended/Unspecified", f["contri_others_amount"]))
             for kind, typ, amt in parts:
                 amt = round(float(amt), 2)
-                if kind == "T":
-                    cid = tax_by_src.get(oc)
-                    pool, stamps = tax_rem, stamp_tax
-                else:
-                    cid = con_by_src.get(oc)
-                    pool, stamps = con_rem, stamp_con
+                tcid, ccid = tax_by_src.get(oc), con_by_src.get(oc)
+                cid = tcid if kind == "T" else ccid
                 if not cid:
                     continue
-                hit = _matches([x for x in pool if x["id"] not in used], cid, amt, date)
+                # an existing remittance in EITHER table counts (a payment may have been
+                # logged as tax while this rule would call it a contribution, or vice versa)
+                hit, stamps = None, None
+                if tcid:
+                    hit = _matches([x for x in tax_rem if ("T", x["id"]) not in used], tcid, amt, date)
+                    if hit:
+                        used.add(("T", hit["id"])); stamps = stamp_tax
+                if not hit and ccid:
+                    hit = _matches([x for x in con_rem if ("S", x["id"]) not in used], ccid, amt, date)
+                    if hit:
+                        used.add(("S", hit["id"])); stamps = stamp_con
                 if hit:
-                    used.add(hit["id"])
                     if not hit["fields"].get("payments_ref"):
                         stamps.append((hit["id"], {"payments_ref": ref}))
                     continue
