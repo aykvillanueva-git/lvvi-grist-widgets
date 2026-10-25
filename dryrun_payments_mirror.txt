@@ -1,0 +1,57 @@
+WOULD ADD TAX  dag:2229 mmm 1788134400 100.0 BIR/LGU (via Payments)
+WOULD ADD TAX  dag:2231 IVRX OPC 1788134400 1628.0 BIR/LGU (via Payments)
+WOULD ADD CON  dag:2260 north.luzon 1789344000 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2262 m&x 1789430400 719.0 Blended/Unspecified
+WOULD ADD CON  dag:2287 funtouch 1789689600 4000.0 Blended/Unspecified
+WOULD ADD CON  dag:2289 royal 1789689600 150.0 Blended/Unspecified
+WOULD ADD CON  dag:2291 dongpo 1789689600 16000.0 Blended/Unspecified
+WOULD ADD CON  dag:2294 fajardo F 1789948800 3211.0 Blended/Unspecified
+WOULD ADD CON  dag:2301 dongpo 1790035200 35.0 Blended/Unspecified
+WOULD ADD CON  dag:2302 liftoholics 1790035200 300.0 Blended/Unspecified
+WOULD ADD CON  dag:2303 concepcion m 1790035200 300.0 Blended/Unspecified
+WOULD ADD CON  dag:2304 cuison j 1790035200 600.0 Blended/Unspecified
+WOULD ADD CON  dag:2305 royal 1790035200 300.0 Blended/Unspecified
+WOULD ADD CON  dag:2306 terrado a 1790035200 6325.0 Blended/Unspecified
+WOULD ADD CON  dag:2307 dauz j 1790121600 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2310 dongpo 1790208000 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2312 st.isidore 1790208000 130.0 Blended/Unspecified
+WOULD ADD CON  dag:2314 norvayon 1790208000 4955.0 Blended/Unspecified
+WOULD ADD CON  dag:2318 pahati j 1790294400 626.0 Blended/Unspecified
+WOULD ADD CON  dag:2319 golden 1790553600 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2320 dongpo 1790553600 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2327 thunder 1790208000 2520.0 Blended/Unspecified
+WOULD ADD CON  dag:2328 thunder 1790640000 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2329 north.luzon 1790640000 288.0 Blended/Unspecified
+WOULD ADD CON  dag:2330 fernandez f 1790640000 1380.0 Blended/Unspecified
+WOULD ADD CON  dag:2332 lusanta m 1790640000 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2333 concepcion m 1790640000 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2336 dongpo 1790812800 22197.0 Blended/Unspecified
+WOULD ADD CON  dag:2338 ratel 1790812800 150.0 Blended/Unspecified
+WOULD ADD CON  dag:2341 dela cruz j 1791158400 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2342 royal 1791158400 215.0 Blended/Unspecified
+WOULD ADD CON  dag:2346 dongpo 1791331200 11717.0 Blended/Unspecified
+WOULD ADD CON  dag:2349 dongpo 1791417600 958.5 Blended/Unspecified
+WOULD ADD CON  dag:2350 blancas a 1791417600 1208.0 Blended/Unspecified
+WOULD ADD CON  dag:2353 lacap e 1791417600 561.0 Blended/Unspecified
+WOULD ADD CON  dag:2360 dela cruz j 1791504000 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2364 dela cruz j 1791849600 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2367 dela cruz j 1791763200 100.0 Blended/Unspecified
+WOULD ADD CON  dag:2368 blancas a 1791849600 880.0 Blended/Unspecified
+WOULD ADD CON  dag:2370 dongpo 1791849600 5753.0 Blended/Unspecified
+WOULD ADD CON  dag:2372 royal 1791936000 284.0 Blended/Unspecified
+WOULD ADD CON  dag:2378 eco 1792108800 300.0 Blended/Unspecified
+WOULD ADD CON  dag:2379 dela cruz j 1792108800 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2380 xiangs 1792108800 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2381 lomandas c 1792108800 50.0 Blended/Unspecified
+WOULD ADD CON  dag:2383 zayler.calix 1792195200 500.0 Blended/Unspecified
+WOULD ADD CON  dag:2385 funtouch 1792454400 4000.0 Blended/Unspecified
+WOULD ADD CON  dag:2387 blancas a 1792454400 458.0 Blended/Unspecified
+WOULD ADD CON  dag:2388 ratel 1792540800 3487.0 Blended/Unspecified
+WOULD ADD CON  dag:2389 arenas a 1792540800 688.0 Blended/Unspecified
+WOULD ADD CON  dag:2394 blancas a 1792627200 956.0 Blended/Unspecified
+WOULD ADD CON  dag:2395 m&x 1792713600 4000.0 Blended/Unspecified
+WOULD ADD CON  dag:2398 dongpo 1792713600 1523.0 Blended/Unspecified
+WOULD ADD CON  dag:2399 norvayon 1792713600 1163.0 Blended/Unspecified
+WOULD ADD CON  dag:2400 dela cruz j 1792713600 240.0 Blended/Unspecified
+WOULD ADD CON  dag:2401 royal 1792713600 142.0 Blended/Unspecified
+DRY RUN: 2 tax, 54 contri would be added (₱1,728 / ₱104,320); 142 existing would be linked
