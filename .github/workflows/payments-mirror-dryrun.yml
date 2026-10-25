@@ -4,6 +4,8 @@ on:
 jobs:
   dry:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -12,4 +14,11 @@ jobs:
       - name: Dry run
         env:
           GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
-        run: cd scripts && python3 payments_mirror.py --dry-run
+        run: cd scripts && python3 payments_mirror.py --dry-run > ../dryrun_payments_mirror.txt 2>&1 || true
+      - name: Publish result to dryrun branch
+        run: |
+          git config user.name "lvvi-dryrun-bot"; git config user.email "actions@github.com"
+          git checkout -B dryrun
+          git add -f dryrun_payments_mirror.txt
+          git commit -m "dry run output [skip ci]"
+          git push -f origin dryrun
