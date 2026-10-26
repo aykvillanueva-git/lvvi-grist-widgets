@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2Z New Payment Entry</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --field: #ffffff;
+    --border: #d9dce1;
+    --border-strong: #c3c7ce;
+    --text: #1d2026;
+    --muted: #6b717c;
+    --faint: #9aa0aa;
+    --accent: #1f6fd1;
+    --accent-hover: #185bb0;
+    --danger: #c03b3b;
+    --success: #2e8540;
+    --c-mat: #d99a1e;    /* materials: solar amber */
+    --c-lab: #1c9a8a;    /* labor & overhead: teal */
+    --c-ga: #3b74d6;     /* office: blue */
+    --c-oth: #8a63c9;    /* others: violet */
+    --radius: 7px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f2125;
+      --card: #282b30;
+      --field: #1f2125;
+      --border: #3a3e45;
+      --border-strong: #4a4f57;
+      --text: #e8eaed;
+      --muted: #a0a6b0;
+      --faint: #6f7680;
+      --accent: #4a90e2;
+      --accent-hover: #5d9ee8;
+      --danger: #ec7a7a;
+      --success: #7cc48a;
+      --c-mat: #e8b04a;
+      --c-lab: #3cc2b0;
+      --c-ga: #6d9cf0;
+      --c-oth: #b08ae6;
+    }
+  }
+  * { box-sizing: border-box; }
+  /* v8: everything sized in rem; the root size scales with the pane so the form fills it.
+     ~29rem tall in total, so at a 460px-tall pane the base size is ~15.9px. */
+  html { font-size: clamp(13px, min(calc(100vh / 29), calc(100vw / 92)), 21px); }
+  html, body { margin: 0; background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text); font-size: 1rem; font-variant-numeric: tabular-nums;
+    padding: 0.55rem 0.75rem 0;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  #groups { display: flex; flex-direction: column; gap: 0.55rem; flex: 1 0 auto; justify-content: space-between; margin-bottom: 0.55rem; }
+
+  /* ---- header ---- */
+  .topbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .brand { display: flex; align-items: baseline; gap: 0.6rem; margin-right: auto; }
+  .brand h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: 0.01em; }
+  .brand span { font-size: 0.85rem; color: var(--muted); }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 0.4rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.25rem 0.85rem; font-size: 0.88rem; color: var(--muted); white-space: nowrap;
+  }
+  .chip strong { color: var(--text); font-size: 1rem; }
+  .chip.warn { border-color: var(--danger); color: var(--danger); }
+  .chip .sep { color: var(--faint); }
+  .chip .good { color: var(--success); }
+  .chip .bad { color: var(--danger); }
+  .hidden { display: none !important; }
+
+  /* ---- cards ---- */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; }
+  .card.info { padding: 0.55rem 0.8rem 0.65rem; margin-bottom: 0.55rem; }
+  .info-grid { display: grid; grid-template-columns: 1fr 0.8fr 1fr 2fr 1.3fr 2fr; gap: 0.7rem; }
+  .cat { display: grid; grid-template-columns: 8.2rem 1fr; border-left: 0.3rem solid var(--cat); flex: 1 0 auto; }
+  .cat-head {
+    padding: 0.5rem 0.75rem; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; justify-content: center; gap: 0.15rem;
+  }
+  .cat-head .name { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cat); line-height: 1.25; }
+  .cat-head .sub { font-size: 1.15rem; font-weight: 600; color: var(--faint); }
+  .cat-head .sub.on { color: var(--text); }
+  .cat-body { display: flex; gap: 0.9rem; padding: 0.45rem 0.8rem 0.6rem; min-width: 0; align-items: center; }
+  .grp { flex: var(--n) 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .grp + .grp { border-left: 1px dashed var(--border-strong); padding-left: 0.9rem; }
+  .grp-cap { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); margin-bottom: 0.1rem; line-height: 1.2; }
+  .grp-fields { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 0.6rem; }
+  .span2 { grid-column: span 2; }
+
+  /* ---- fields ---- */
+  label {
+    display: block; font-size: 0.84rem; color: var(--muted); margin-bottom: 0.18rem; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  label .req { color: var(--danger); }
+  label .opt { color: var(--faint); }
+  input, select {
+    width: 100%; height: 2.15rem; padding: 0 0.55rem;
+    border: 1px solid var(--border); border-radius: 0.35rem;
+    background: var(--field); color: var(--text); font: inherit; font-size: 1rem;
+  }
+  input::placeholder { color: var(--faint); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  input.money { text-align: right; }
+  .cat input.money.filled, .cat select.filled {
+    border-color: var(--cat); background: color-mix(in srgb, var(--cat) 14%, var(--field)); font-weight: 600;
+  }
+  .date-wrap { position: relative; }
+  .date-wrap input[type="text"] { padding-right: 1.9rem; }
+  .date-pick-btn, .native-date-hidden {
+    position: absolute; right: 0.2rem; top: 0.25rem; width: 1.65rem; height: 1.65rem;
+  }
+  .date-pick-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; color: var(--muted); cursor: pointer; border-radius: 4px;
+  }
+  .date-pick-btn svg { width: 1rem; height: 1rem; }
+  .date-pick-btn:hover { color: var(--text); }
+  .native-date-hidden { opacity: 0; pointer-events: none; }
+  input.invalid { border-color: var(--danger); }
+  .hint { font-size: 0.75rem; color: var(--faint); }
+  .hint.warn { color: var(--danger); }
+
+  /* ---- footer ---- */
+  .footer {
+    position: sticky; bottom: 0; z-index: 2;
+    display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+    background: var(--bg); padding: 0.5rem 0 0.65rem; border-top: 1px solid var(--border);
+  }
+  #status-msg { font-size: 0.9rem; margin-right: auto; }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  .tot { display: inline-flex; align-items: baseline; gap: 0.4rem; font-size: 0.88rem; color: var(--muted); padding: 0 0.2rem; }
+  .tot b { font-size: 1.05rem; color: var(--text); font-weight: 600; }
+  .tot i { width: 0.55rem; height: 0.55rem; border-radius: 2px; display: inline-block; align-self: center; }
+  .tot.grand { border-left: 1px solid var(--border-strong); padding-left: 0.9rem; }
+  .tot.grand b { font-size: 1.4rem; font-weight: 700; }
+  button#save-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 0.4rem;
+    padding: 0 1.6rem; height: 2.45rem; font-size: 1.05rem; font-weight: 600; cursor: pointer;
+  }
+  button#save-btn:hover:not(:disabled) { background: var(--accent-hover); }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+
+  @media (max-width: 1100px) {
+    html { font-size: 15px; }
+    .info-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cat { grid-template-columns: 1fr; }
+    .cat-head { flex-direction: row; align-items: baseline; justify-content: space-between; border-right: none; border-bottom: 1px solid var(--border); padding: 0.35rem 0.75rem; }
+    .cat-body { flex-wrap: wrap; }
+    .grp { flex: 1 1 100%; }
+    .grp + .grp { border-left: none; padding-left: 0; }
+    .grp-fields { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<!--
+  A2Z Renewables Corp. (DBA A2Z Solar) -- New Payment Entry, v8.
+  v8 (2026-10-26, Ayk): rem-based sizing that scales with the pane height (bigger text/boxes, more
+  breathing room), cards stretch to fill the pane, shorter labels (full names on hover).
+  v7 (2026-10-26, Ayk): redesigned layout -- colour-coded category cards with live subtotals,
+  peso-formatted right-aligned amounts that highlight when filled, header chips for cash balance and
+  project margin, sticky footer with totals and Save. Same columns and save logic as v6.
+  v6 (2026-10-25, Ayk): v5 with text ~15% larger, spacing ~20% larger, inputs 30px.
+  v5 (2026-10-25, Ayk): v4 with all spacing (gaps, margins, padding) +20%.
+  v4 (2026-10-25, Ayk): v3 with all font sizes +20% (inputs 28px tall).
+  v3 (2026-10-25, Ayk): compact layout -- smaller fonts/spacing, header fields on one line, labor+overhead
+  and office+others share lines, totals beside the Save button, so the whole form fits the Grist pane.
+  v2 (2026-10-25, Ayk): office lines cut to salaries, SSS/PHIC/HDMF, transportation, taxes & licenses,
+  office supplies; everything else goes through Others Amount + Others Description (Employee Benefits,
+  Asset Purchase, Cash Advance, Supplier Deposit/Advance, Miscellaneous Expenses), as in LVVI payments.
+  Grist doc "a2z daily cash report" (bGyqoZAsrtACQaTTTTcoSG), table Cash_disbursements.
+  Modeled on LVVI new_payment_entry_widget_v9. Differences:
+   - One input per cost line instead of LVVI's Others Amount + Others Description:
+     job costs (BOM materials, labor, job overhead), office G&A (FS lines) and non-expense items.
+   - Project (Ref:Projects) is required whenever any job-cost line is filled, so job costing works.
+   - Paid From (Ref:Cash_Accounts) with the account's live balance.
+   - Standing rule (Ayk 2026-10-25): technician basic pay stays in Office Salaries; only the
+     install-day premium is charged to the project as Labor Incentive / OT.
+-->
+
+<div class="topbar">
+  <div class="brand"><h1>A2Z Payments</h1><span>Cash disbursement entry</span></div>
+  <span class="chip hidden" id="proj-info"></span>
+  <span class="chip hidden" id="cash-balance-bar"><span id="cash-balance-text"></span></span>
+</div>
+
+<div class="card info">
+  <div class="info-grid">
+    <div>
+      <label>Date <span class="req">*</span></label>
+      <div class="date-wrap">
+        <input type="text" id="f-date" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
+        <button type="button" class="date-pick-btn" id="f-date-pick" tabindex="-1" aria-label="Pick date">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </button>
+        <input type="date" id="f-date-native" class="native-date-hidden" tabindex="-1">
+      </div>
+    </div>
+    <div>
+      <label>Encoded by <span class="req">*</span></label>
+      <select id="f-encoded-by">
+        <option value="MEG">MEG</option>
+        <option value="Ayk">Ayk</option>
+        <option value="Erika">Erika</option>
+      </select>
+    </div>
+    <div>
+      <label>Paid From <span class="req">*</span></label>
+      <select id="f-account"></select>
+    </div>
+    <div>
+      <label>Project / Client <span class="opt">&middot; required for job costs</span></label>
+      <input type="text" id="f-project" list="project-list" placeholder="Blank for office expenses" autocomplete="off">
+      <datalist id="project-list"></datalist>
+    </div>
+    <div>
+      <label>Payee / Supplier</label>
+      <input type="text" id="f-payee" placeholder="Who was paid">
+    </div>
+    <div>
+      <label>Description / Ref</label>
+      <input type="text" id="f-description" placeholder="What was bought, OR / invoice no.">
+    </div>
+  </div>
+</div>
+
+<div id="groups"></div>
+
+<div class="footer">
+  <span id="status-msg"></span>
+  <span class="tot"><i style="background:var(--c-mat)"></i>Job cost <b id="calc-job">&#8369;0</b></span>
+  <span class="tot"><i style="background:var(--c-ga)"></i>Office <b id="calc-ga">&#8369;0</b></span>
+  <span class="tot"><i style="background:var(--c-oth)"></i>Not expense <b id="calc-nonexp">&#8369;0</b></span>
+  <span class="tot grand">Total paid <b id="calc-total">&#8369;0</b></span>
+  <button id="save-btn">Save entry</button>
+  <div class="hidden"><div id="calc-label">&mdash;</div></div>
+</div>
+
+<script>
+// Column ids match Cash_disbursements. kind decides which total a line rolls into.
+const GROUPS = [
+  { title: 'Job cost — materials (BOM)', kind: 'job', fields: [
+    ['solar_panels', 'Panels'], ['inverter', 'Inverter'], ['battery', 'Battery'],
+    ['protection_devices', 'Protection'], ['mounting_kit', 'Mounting Kit'],
+    ['wires_cables', 'Wires & Cables'], ['accessories', 'Accessories'],
+    ['other_materials', 'Other Mat.'], ['freight_delivery', 'Freight'] ] },
+  { title: 'Job cost — labor', kind: 'job', fields: [
+    ['direct_labor', 'Installers'], ['labor_incentive', 'Incentive / OT'],
+    ['subcontract_labor', 'Subcontract'] ] },
+  { title: 'Job cost — job overhead', kind: 'job', fields: [
+    ['site_transport', 'Transport'], ['site_meals', 'Meals'],
+    ['permits_netmetering', 'Permits'], ['equipment_rental', 'Rentals'],
+    ['finders_fee', "Finder's Fee"], ['design_fee', 'Design Fee'],
+    ['project_mgmt', 'Project Mgmt'], ['other_job_cost', 'Other'] ] },
+  { title: 'Office expenses (G&A)', kind: 'ga', fields: [
+    ['salaries', 'Salaries'], ['sss', 'SSS (ER)'], ['phic', 'PHIC (ER)'], ['hdmf', 'HDMF (ER)'],
+    ['transport_travel', 'Travel'], ['taxes_licenses', 'Taxes & Lic.'],
+    ['office_supplies', 'Supplies'] ] }
+];
+// Others Amount + Others Description (LVVI-style). Description decides which total it rolls into.
+const OTHERS_KIND = {
+  'Employee Benefits': 'ga',
+  'Miscellaneous Expenses': 'ga',
+  'Asset Purchase': 'nonexp',
+  'Cash Advance': 'nonexp',
+  'Supplier Deposit/Advance': 'nonexp'
+};
+const ALL_FIELDS = GROUPS.flatMap(g => g.fields.map(f => ({ col: f[0], kind: g.kind })));
+
+let projects = []; // {id, client, ref, price, jobCost}
+let accounts = []; // {id, name, balance}
+
+// Cards on screen. Each card = one colour-coded category with a live subtotal.
+const CARDS = [
+  { key: 'mat', name: 'Materials', color: '--c-mat', groups: [{ g: 0 }] },
+  { key: 'lab', name: 'Labor & Overhead', color: '--c-lab', groups: [{ g: 1, cap: 'Labor' }, { g: 2, cap: 'Job overhead' }] },
+  { key: 'ga', name: 'Office & Others', color: '--c-ga', groups: [{ g: 3, cap: 'Office expenses (G&A)' }, { others: true, cap: 'Others' }] }
+];
+const CARD_COLS = {}; // card key -> [col ids]
+
+function moneyInput(id) {
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '—';
+  inp.id = id; inp.className = 'money'; inp.autocomplete = 'off';
+  inp.addEventListener('input', recompute);
+  inp.addEventListener('focus', () => { inp.value = inp.value.replace(/,/g, ''); });
+  inp.addEventListener('blur', () => {
+    const v = parseFloat(inp.value.replace(/,/g, ''));
+    inp.value = isNaN(v) || !v ? '' : v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    recompute();
+  });
+  return inp;
+}
+
+(function renderGroups() {
+  const host = document.getElementById('groups');
+  CARDS.forEach(card => {
+    CARD_COLS[card.key] = [];
+    const el = document.createElement('div');
+    el.className = 'card cat';
+    el.style.setProperty('--cat', 'var(' + card.color + ')');
+    el.innerHTML = '<div class="cat-head"><div class="name">' + card.name + '</div>' +
+      '<div class="sub" id="sub-' + card.key + '">₱0</div></div>';
+    const body = document.createElement('div');
+    body.className = 'cat-body';
+    card.groups.forEach(gr => {
+      const g = document.createElement('div');
+      g.className = 'grp';
+      if (gr.cap) g.innerHTML = '<div class="grp-cap">' + gr.cap + '</div>';
+      const fields = document.createElement('div');
+      fields.className = 'grp-fields';
+      let n = 0;
+      if (gr.others) {
+        g.style.setProperty('--cat', 'var(--c-oth)');
+        const a = document.createElement('div');
+        a.innerHTML = '<label>Amount</label>';
+        a.appendChild(moneyInput('f-others-amount'));
+        const b = document.createElement('div');
+        b.className = 'span2';
+        b.innerHTML = '<label>Description <span class="hint" id="others-hint"></span></label>' +
+          '<select id="f-others-desc"><option value="">— select —</option>' +
+          Object.keys(OTHERS_KIND).map(k => '<option value="' + k + '">' + k + '</option>').join('') + '</select>';
+        fields.appendChild(a); fields.appendChild(b);
+        n = 3;
+      } else {
+        GROUPS[gr.g].fields.forEach(([col, label]) => {
+          const d = document.createElement('div');
+          const l = document.createElement('label');
+          l.textContent = label; l.title = label;
+          d.appendChild(l); d.appendChild(moneyInput('f-' + col));
+          fields.appendChild(d);
+          CARD_COLS[card.key].push(col);
+          n++;
+        });
+      }
+      g.style.setProperty('--n', n);
+      fields.style.setProperty('--n', n);
+      g.appendChild(fields);
+      body.appendChild(g);
+    });
+    el.appendChild(body);
+    host.appendChild(el);
+  });
+  document.getElementById('f-others-desc').addEventListener('change', recompute);
+})();
+
+function num(id) {
+  const el = document.getElementById(id);
+  const v = parseFloat(el ? String(el.value).replace(/,/g, '') : '');
+  return isNaN(v) ? 0 : v;
+}
+function peso(n) { return '₱' + Math.round(n).toLocaleString('en-US'); }
+function peso2(n) {
+  return '₱' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function totals() {
+  const t = { job: 0, ga: 0, nonexp: 0 };
+  ALL_FIELDS.forEach(f => { t[f.kind] += num('f-' + f.col); });
+  const oAmt = num('f-others-amount');
+  const oKind = OTHERS_KIND[document.getElementById('f-others-desc').value];
+  if (oKind) t[oKind] += oAmt;
+  t.othersUnassigned = (oAmt && !oKind) ? oAmt : 0;
+  t.total = t.job + t.ga + t.nonexp;
+  return t;
+}
+function findProject(name) {
+  const key = (name || '').trim().toLowerCase();
+  if (!key) return null;
+  return projects.find(p => p.client.trim().toLowerCase() === key) ||
+         projects.find(p => (p.ref || '').trim().toLowerCase() === key) || null;
+}
+
+function recompute() {
+  const t = totals();
+  document.getElementById('calc-job').textContent = peso(t.job);
+  document.getElementById('calc-ga').textContent = peso(t.ga);
+  document.getElementById('calc-nonexp').textContent = peso(t.nonexp);
+  document.getElementById('calc-total').textContent = peso(t.total);
+  Object.keys(CARD_COLS).forEach(k => {
+    let s = CARD_COLS[k].reduce((a, c) => a + num('f-' + c), 0);
+    if (k === 'ga') s += num('f-others-amount');
+    const el = document.getElementById('sub-' + k);
+    el.textContent = peso(s);
+    el.className = 'sub' + (s ? ' on' : '');
+  });
+  document.querySelectorAll('input.money').forEach(i => i.classList.toggle('filled', num(i.id) !== 0));
+  const odEl = document.getElementById('f-others-desc');
+  odEl.classList.toggle('filled', !!odEl.value);
+  const oh = document.getElementById('others-hint');
+  const od = document.getElementById('f-others-desc').value;
+  oh.className = 'hint' + (t.othersUnassigned ? ' warn' : '');
+  oh.textContent = t.othersUnassigned ? '· pick one'
+    : (od ? (OTHERS_KIND[od] === 'ga' ? '· office expense' : '· not an expense') : '');
+  const dateVal = document.getElementById('f-date').value;
+  const label = document.getElementById('f-description').value.trim() ||
+                document.getElementById('f-payee').value.trim() || 'No description';
+  document.getElementById('calc-label').textContent = (dateVal || '—') + ' - ' + label;
+  updateProjectInfo();
+}
+
+function updateProjectInfo() {
+  const info = document.getElementById('proj-info');
+  const name = document.getElementById('f-project').value.trim();
+  const match = findProject(name);
+  if (!name) { info.className = 'chip hidden'; return; }
+  if (!match) {
+    info.className = 'chip warn';
+    info.textContent = 'Project not found — add it in Projects first';
+    return;
+  }
+  info.className = 'chip';
+  const add = totals().job;
+  const after = match.jobCost + add;
+  let html = 'Job cost <strong>' + peso(match.jobCost) + '</strong>';
+  if (add) html += ' → <strong>' + peso(after) + '</strong>';
+  if (match.price) {
+    const margin = (match.price - after) / match.price * 100;
+    html += ' <span class="sep">|</span> Contract <strong>' + peso(match.price) + '</strong>' +
+      ' <span class="sep">|</span> Margin <strong class="' + (margin >= 25 ? 'good' : margin < 15 ? 'bad' : '') + '">' +
+      margin.toFixed(1) + '%</strong>';
+  }
+  info.innerHTML = html;
+}
+
+function updateCashBar() {
+  const bar = document.getElementById('cash-balance-bar');
+  const text = document.getElementById('cash-balance-text');
+  const id = parseInt(document.getElementById('f-account').value, 10);
+  const acct = accounts.find(a => a.id === id);
+  if (!acct) { bar.classList.add('hidden'); return; }
+  text.innerHTML = acct.name + ' <strong>' + peso2(acct.balance) + '</strong>';
+  bar.classList.remove('hidden');
+}
+
+['f-date', 'f-description', 'f-payee', 'f-project'].forEach(id => {
+  document.getElementById(id).addEventListener('input', recompute);
+});
+document.getElementById('f-account').addEventListener('change', updateCashBar);
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function wireDateField(textId, nativeId, btnId) {
+  const textEl = document.getElementById(textId);
+  const nativeEl = document.getElementById(nativeId);
+  const btnEl = document.getElementById(btnId);
+  btnEl.addEventListener('click', () => {
+    if (DATE_RE.test(textEl.value)) nativeEl.value = textEl.value;
+    if (nativeEl.showPicker) { nativeEl.showPicker(); } else { nativeEl.focus(); nativeEl.click(); }
+  });
+  nativeEl.addEventListener('input', () => {
+    if (nativeEl.value) {
+      textEl.value = nativeEl.value;
+      textEl.classList.remove('invalid');
+      textEl.dispatchEvent(new Event('input'));
+    }
+  });
+  textEl.addEventListener('blur', () => {
+    if (textEl.value && !DATE_RE.test(textEl.value)) textEl.classList.add('invalid');
+    else textEl.classList.remove('invalid');
+  });
+  textEl.addEventListener('input', () => textEl.classList.remove('invalid'));
+}
+wireDateField('f-date', 'f-date-native', 'f-date-pick');
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+async function loadAccounts() {
+  try {
+    const t = await grist.docApi.fetchTable('Cash_Accounts');
+    const prev = document.getElementById('f-account').value;
+    accounts = (t.id || []).map((id, i) => ({ id, name: t.account[i] || ('#' + id), balance: t.balance[i] || 0 }));
+    const sel = document.getElementById('f-account');
+    sel.innerHTML = '';
+    accounts.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+    updateCashBar();
+  } catch (e) {
+    setStatus('Could not load Cash_Accounts: ' + (e && e.message ? e.message : e), 'error');
+  }
+}
+
+async function loadProjects() {
+  try {
+    const t = await grist.docApi.fetchTable('Projects');
+    projects = (t.id || []).map((id, i) => ({
+      id,
+      client: t.client[i] || '',
+      ref: t.ref_no[i] || '',
+      price: t.contract_price[i] || 0,
+      jobCost: t.job_cost[i] || 0,
+      status: t.status[i] || ''
+    }));
+    const dl = document.getElementById('project-list');
+    dl.innerHTML = '';
+    [...projects].sort((a, b) => a.client.localeCompare(b.client, undefined, { sensitivity: 'base' }))
+      .forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.client;
+        opt.label = [p.ref, p.status].filter(Boolean).join(' · ');
+        dl.appendChild(opt);
+      });
+    updateProjectInfo();
+  } catch (e) { /* autocomplete just won't populate */ }
+}
+
+async function loadDefaults() {
+  let dateSet = false;
+  try {
+    const t = await grist.docApi.fetchTable('Cash_disbursements');
+    const ids = t.id || [];
+    if (ids.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < ids.length; i++) if (ids[i] > ids[maxIdx]) maxIdx = i;
+      if (t.date[maxIdx]) {
+        document.getElementById('f-date').value = new Date(t.date[maxIdx] * 1000).toISOString().slice(0, 10);
+        dateSet = true;
+      }
+      if (t.encoded_by[maxIdx]) document.getElementById('f-encoded-by').value = t.encoded_by[maxIdx];
+      if (t.account[maxIdx]) document.getElementById('f-account').value = t.account[maxIdx];
+    }
+  } catch (e) { /* fall through */ }
+  if (!dateSet) document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  updateCashBar();
+  recompute();
+}
+
+function resetFormAfterSave() {
+  ['f-payee', 'f-description'].forEach(id => { document.getElementById(id).value = ''; });
+  ALL_FIELDS.forEach(f => { document.getElementById('f-' + f.col).value = ''; });
+  document.getElementById('f-others-amount').value = '';
+  document.getElementById('f-others-desc').value = '';
+  // Keep the project: a run of receipts for one job is the common case.
+  recompute();
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const date = document.getElementById('f-date').value;
+  const encodedBy = document.getElementById('f-encoded-by').value;
+  const accountId = parseInt(document.getElementById('f-account').value, 10);
+  const projName = document.getElementById('f-project').value.trim();
+  const t = totals();
+
+  if (!date || !encodedBy || !accountId) {
+    setStatus('Fill in date, encoded by and paid from before saving.', 'error');
+    return;
+  }
+  if (!DATE_RE.test(date)) { setStatus('Date must be in YYYY-MM-DD format.', 'error'); return; }
+  if (t.othersUnassigned) { setStatus('Others Amount is filled in \u2014 pick an Others Description before saving.', 'error'); return; }
+  if (t.total <= 0) { setStatus('Enter at least one amount before saving.', 'error'); return; }
+  const match = findProject(projName);
+  if (t.job > 0 && !match) {
+    setStatus(projName ? 'Project "' + projName + '" not found — add it first.'
+                       : 'Job-cost lines are filled — pick the project before saving.', 'error');
+    return;
+  }
+  if (projName && !match) {
+    setStatus('Project "' + projName + '" not found — clear it or add the project first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving...', '');
+  try {
+    const rec = {
+      encoded_by: encodedBy,
+      date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+      account: accountId,
+      payee: document.getElementById('f-payee').value.trim(),
+      description: document.getElementById('f-description').value.trim()
+    };
+    if (match) rec.project = match.id;
+    ALL_FIELDS.forEach(f => { const v = num('f-' + f.col); if (v) rec[f.col] = v; });
+    if (num('f-others-amount')) {
+      rec.others_amount = num('f-others-amount');
+      rec.others_description = document.getElementById('f-others-desc').value;
+    }
+    await grist.docApi.applyUserActions([['AddRecord', 'Cash_disbursements', null, rec]]);
+    setStatus('Saved: ' + document.getElementById('calc-label').textContent + ' — ' + peso(t.total), 'success');
+    resetFormAfterSave();
+    loadProjects();
+    loadAccounts();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+grist.ready({ requiredAccess: 'full' });
+loadAccounts().then(loadDefaults);
+loadProjects();
+
+setInterval(() => { loadAccounts(); loadProjects(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { loadAccounts(); loadProjects(); }
+});
+window.addEventListener('focus', () => { loadAccounts(); loadProjects(); });
+</script>
+</body>
+</html>
