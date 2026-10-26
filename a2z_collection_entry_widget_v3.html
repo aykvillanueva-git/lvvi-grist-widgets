@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2Z New Collection Entry</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --field: #ffffff;
+    --border: #d9dce1;
+    --border-strong: #c3c7ce;
+    --text: #1d2026;
+    --muted: #6b717c;
+    --faint: #9aa0aa;
+    --accent: #1f6fd1;
+    --accent-hover: #185bb0;
+    --danger: #c03b3b;
+    --success: #2e8540;
+    --c-mat: #d99a1e;    /* materials: solar amber */
+    --c-lab: #1c9a8a;    /* labor & overhead: teal */
+    --c-ga: #3b74d6;     /* office: blue */
+    --c-oth: #8a63c9;    /* others: violet */
+    --radius: 7px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f2125;
+      --card: #282b30;
+      --field: #1f2125;
+      --border: #3a3e45;
+      --border-strong: #4a4f57;
+      --text: #e8eaed;
+      --muted: #a0a6b0;
+      --faint: #6f7680;
+      --accent: #4a90e2;
+      --accent-hover: #5d9ee8;
+      --danger: #ec7a7a;
+      --success: #7cc48a;
+      --c-mat: #e8b04a;
+      --c-lab: #3cc2b0;
+      --c-ga: #6d9cf0;
+      --c-oth: #b08ae6;
+    }
+  }
+  * { box-sizing: border-box; }
+  /* v8: everything sized in rem; the root size scales with the pane so the form fills it.
+     ~29rem tall in total, so at a 460px-tall pane the base size is ~15.9px. */
+  html { font-size: clamp(13px, min(calc(100vh / 29), calc(100vw / 92)), 21px); }
+  html, body { margin: 0; background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text); font-size: 1rem; font-variant-numeric: tabular-nums;
+    padding: 0.55rem 0.75rem 0;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  #groups { display: flex; flex-direction: column; gap: 0.55rem; flex: 1 0 auto; justify-content: space-between; margin-bottom: 0.55rem; }
+
+  /* ---- header ---- */
+  .topbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .brand { display: flex; align-items: baseline; gap: 0.6rem; margin-right: auto; }
+  .brand h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: 0.01em; }
+  .brand span { font-size: 0.85rem; color: var(--muted); }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 0.4rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.25rem 0.85rem; font-size: 0.88rem; color: var(--muted); white-space: nowrap;
+  }
+  .chip strong { color: var(--text); font-size: 1rem; }
+  .chip.warn { border-color: var(--danger); color: var(--danger); }
+  .chip .sep { color: var(--faint); }
+  .chip .good { color: var(--success); }
+  .chip .bad { color: var(--danger); }
+  .hidden { display: none !important; }
+
+  /* ---- cards ---- */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; }
+  .card.info { padding: 0.55rem 0.8rem 0.65rem; margin-bottom: 0.55rem; }
+  .info-grid { display: grid; grid-template-columns: 1fr 0.8fr 1fr 2fr 1.3fr 2fr; gap: 0.7rem; }
+  .cat { display: grid; grid-template-columns: 8.2rem 1fr; border-left: 0.3rem solid var(--cat); flex: 1 0 auto; }
+  .cat-head {
+    padding: 0.5rem 0.75rem; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; justify-content: center; gap: 0.15rem;
+  }
+  .cat-head .name { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cat); line-height: 1.25; }
+  .cat-head .sub { font-size: 1.15rem; font-weight: 600; color: var(--faint); }
+  .cat-head .sub.on { color: var(--text); }
+  .cat-body { display: flex; gap: 0.9rem; padding: 0.45rem 0.8rem 0.6rem; min-width: 0; align-items: center; }
+  .grp { flex: var(--n) 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .grp + .grp { border-left: 1px dashed var(--border-strong); padding-left: 0.9rem; }
+  .grp-cap { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); margin-bottom: 0.1rem; line-height: 1.2; }
+  .grp-fields { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 0.6rem; }
+  .span2 { grid-column: span 2; }
+
+  /* ---- fields ---- */
+  label {
+    display: block; font-size: 0.84rem; color: var(--muted); margin-bottom: 0.18rem; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  label .req { color: var(--danger); }
+  label .opt { color: var(--faint); }
+  input, select {
+    width: 100%; height: 2.15rem; padding: 0 0.55rem;
+    border: 1px solid var(--border); border-radius: 0.35rem;
+    background: var(--field); color: var(--text); font: inherit; font-size: 1rem;
+  }
+  input::placeholder { color: var(--faint); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  input.money { text-align: right; }
+  .cat input.money.filled, .cat select.filled {
+    border-color: var(--cat); background: color-mix(in srgb, var(--cat) 14%, var(--field)); font-weight: 600;
+  }
+  .date-wrap { position: relative; }
+  .date-wrap input[type="text"] { padding-right: 1.9rem; }
+  .date-pick-btn, .native-date-hidden {
+    position: absolute; right: 0.2rem; top: 0.25rem; width: 1.65rem; height: 1.65rem;
+  }
+  .date-pick-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; color: var(--muted); cursor: pointer; border-radius: 4px;
+  }
+  .date-pick-btn svg { width: 1rem; height: 1rem; }
+  .date-pick-btn:hover { color: var(--text); }
+  .native-date-hidden { opacity: 0; pointer-events: none; }
+  input.invalid { border-color: var(--danger); }
+  .hint { font-size: 0.75rem; color: var(--faint); }
+  .hint.warn { color: var(--danger); }
+
+  /* ---- footer ---- */
+  .footer {
+    position: sticky; bottom: 0; z-index: 2;
+    display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+    background: var(--bg); padding: 0.5rem 0 0.65rem; border-top: 1px solid var(--border);
+  }
+  #status-msg { font-size: 0.9rem; margin-right: auto; }
+  #status-msg.error { color: var(--danger); }
+  #status-msg.success { color: var(--success); }
+  .tot { display: inline-flex; align-items: baseline; gap: 0.4rem; font-size: 0.88rem; color: var(--muted); padding: 0 0.2rem; }
+  .tot b { font-size: 1.05rem; color: var(--text); font-weight: 600; }
+  .tot i { width: 0.55rem; height: 0.55rem; border-radius: 2px; display: inline-block; align-self: center; }
+  .tot.grand { border-left: 1px solid var(--border-strong); padding-left: 0.9rem; }
+  .tot.grand b { font-size: 1.4rem; font-weight: 700; }
+  button#save-btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 0.4rem;
+    padding: 0 1.6rem; height: 2.45rem; font-size: 1.05rem; font-weight: 600; cursor: pointer;
+  }
+  button#save-btn:hover:not(:disabled) { background: var(--accent-hover); }
+  button#save-btn:disabled { opacity: 0.6; cursor: default; }
+
+  @media (max-width: 1100px) {
+    html { font-size: 15px; }
+    .info-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cat { grid-template-columns: 1fr; }
+    .cat-head { flex-direction: row; align-items: baseline; justify-content: space-between; border-right: none; border-bottom: 1px solid var(--border); padding: 0.35rem 0.75rem; }
+    .cat-body { flex-wrap: wrap; }
+    .grp { flex: 1 1 100%; }
+    .grp + .grp { border-left: none; padding-left: 0; }
+    .grp-fields { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }
+  }
+
+  /* ---- collection-specific ---- */
+  .coll-grid { grid-template-columns: 1fr 0.8fr 1fr 1fr 2fr 1.6fr; }
+  .newproj { margin-top: 0.55rem; padding: 0.45rem 0.6rem 0.55rem; border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1px dashed var(--accent); }
+  .newproj-tag { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 0.25rem; }
+  .newproj-grid { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1.2fr; gap: 0.7rem; }
+  input.money.big { font-size: 1.15rem; }
+  .cat input.money.big.filled { font-weight: 700; }
+  .note { align-self: end; font-size: 0.8rem; color: var(--faint); padding-bottom: 0.45rem; }
+  .fill-link { color: var(--accent); font-weight: 600; text-decoration: none; margin-left: 0.25rem; }
+  .fill-link:hover { text-decoration: underline; }
+  .tot.grand.ok b { color: var(--success); }
+  .tot.grand.off b { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<!--
+  A2Z Renewables Corp. (DBA A2Z Solar) -- New Collection Entry, v3.
+  v3 (2026-10-26, Ayk): "Not revenue" relabelled "NonRevenue".
+  Grist doc "a2z daily cash report" (bGyqoZAsrtACQaTTTTcoSG), table Daily_cash_collections.
+  v2 (2026-10-26, Ayk): same look as payment widget v8 -- rem sizing that scales with the pane,
+  colour-coded cards with live subtotals, peso-formatted amounts that highlight when filled,
+  header chips (project contract/collected/balance, account balance), sticky footer with Save.
+  Logic unchanged from v1:
+   - Project = Ref:Projects (shown by client name); a new project can be added inline.
+   - Milestone (40/40/20) with one-click fill of the milestone amount from the contract price.
+   - Deposited To = Ref:Cash_Accounts.
+   - Distribution lines must equal Amount Received exactly.
+   - CWT withheld (2307) is separate: not cash, not part of Amount Received.
+-->
+
+<div class="topbar">
+  <div class="brand"><h1>A2Z Collections</h1><span>Cash receipt entry</span></div>
+  <span class="chip hidden" id="proj-info"></span>
+  <span class="chip hidden" id="cash-balance-bar"><span id="cash-balance-text"></span></span>
+</div>
+
+<div class="card info">
+  <div class="info-grid coll-grid">
+    <div>
+      <label>Date <span class="req">*</span></label>
+      <div class="date-wrap">
+        <input type="text" id="f-date" placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
+        <button type="button" class="date-pick-btn" id="f-date-pick" tabindex="-1" aria-label="Pick date">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </button>
+        <input type="date" id="f-date-native" class="native-date-hidden" tabindex="-1">
+      </div>
+    </div>
+    <div>
+      <label>Encoded by <span class="req">*</span></label>
+      <select id="f-encoded-by">
+        <option value="MEG">MEG</option>
+        <option value="Ayk">Ayk</option>
+        <option value="Erika">Erika</option>
+      </select>
+    </div>
+    <div>
+      <label>Deposited To <span class="req">*</span></label>
+      <select id="f-account"></select>
+    </div>
+    <div>
+      <label>Method <span class="req">*</span></label>
+      <select id="f-method">
+        <option value="Cash">Cash</option>
+        <option value="GCash">GCash</option>
+        <option value="Bank Transfer">Bank Transfer</option>
+        <option value="Check">Check</option>
+        <option value="Credit Card (PocketPay)">Credit Card (PocketPay)</option>
+      </select>
+    </div>
+    <div>
+      <label>Project / Client <span class="opt">&middot; blank for capital, loans, interest</span></label>
+      <input type="text" id="f-project" list="project-list" placeholder="Type the client name" autocomplete="off">
+      <datalist id="project-list"></datalist>
+    </div>
+    <div>
+      <label>Received From / OR No.</label>
+      <input type="text" id="f-payor" placeholder="Payor, OR / AR number">
+    </div>
+  </div>
+  <div class="newproj hidden" id="new-project-box">
+    <div class="newproj-tag">New project &mdash; will be added to Projects</div>
+    <div class="newproj-grid">
+      <div><label>Project Site</label><input type="text" id="f-np-site" placeholder="Brgy., Town"></div>
+      <div>
+        <label>Job Type</label>
+        <select id="f-np-type">
+          <option value="Supply &amp; Install">Supply &amp; Install</option>
+          <option value="Upgrade / Addendum">Upgrade / Addendum</option>
+          <option value="Repair / Recommissioning">Repair / Recommissioning</option>
+          <option value="Labor-only Subcontract">Labor-only Subcontract</option>
+          <option value="Materials Sale">Materials Sale</option>
+          <option value="Maintenance / Cleaning">Maintenance / Cleaning</option>
+        </select>
+      </div>
+      <div><label>Contract Price</label><input type="text" class="money plain" id="f-np-price" inputmode="decimal" placeholder="&mdash;"></div>
+      <div><label>Ref No.</label><input type="text" id="f-np-ref" placeholder="A2Z-2026-MMDD-XX"></div>
+    </div>
+  </div>
+</div>
+
+<div id="groups">
+  <div class="card cat" style="--cat: var(--c-ga)">
+    <div class="cat-head"><div class="name">Receipt</div><div class="sub" id="sub-rcpt">₱0</div></div>
+    <div class="cat-body">
+      <div class="grp" style="--n: 4">
+        <div class="grp-fields" style="--n: 4">
+          <div class="span2">
+            <label>Milestone <span class="hint" id="milestone-hint"></span></label>
+            <select id="f-milestone">
+              <option value="">— select —</option>
+              <option value="40% Upon Signing">40% Upon Signing</option>
+              <option value="40% Before Purchase of Materials">40% Before Purchase of Materials</option>
+              <option value="20% Upon Commissioning">20% Upon Commissioning</option>
+              <option value="Full Payment">Full Payment</option>
+              <option value="Addendum / Upgrade">Addendum / Upgrade</option>
+              <option value="Partial / Other">Partial / Other</option>
+            </select>
+          </div>
+          <div class="span2">
+            <label>Amount Received <span class="req">*</span></label>
+            <input type="text" class="money big" id="f-amount" inputmode="decimal" placeholder="—" autocomplete="off">
+          </div>
+        </div>
+      </div>
+      <div class="grp" style="--n: 2; --cat: var(--c-mat)">
+        <div class="grp-fields" style="--n: 2">
+          <div class="span2">
+            <label>CWT Withheld by Client (2307) <span class="hint">· not cash</span></label>
+            <input type="text" class="money" id="f-cwt" inputmode="decimal" placeholder="—" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card cat" style="--cat: var(--c-lab)">
+    <div class="cat-head"><div class="name">Revenue</div><div class="sub" id="sub-rev">₱0</div></div>
+    <div class="cat-body">
+      <div class="grp" style="--n: 5">
+        <div class="grp-fields" style="--n: 5">
+          <div><label title="Contract Payment">Contract Payment</label><input type="text" class="money" id="f-contract" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Addendum / Upgrade">Addendum / Upgrade</label><input type="text" class="money" id="f-addendum" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Service / Labor Fees">Service / Labor Fees</label><input type="text" class="money" id="f-service" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Materials Sale">Materials Sale</label><input type="text" class="money" id="f-materials" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Other Income">Other Income</label><input type="text" class="money" id="f-other" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card cat" style="--cat: var(--c-oth)">
+    <div class="cat-head"><div class="name">NonRevenue</div><div class="sub" id="sub-nonrev">₱0</div></div>
+    <div class="cat-body">
+      <div class="grp" style="--n: 5">
+        <div class="grp-fields" style="--n: 5">
+          <div><label title="Stockholder Advances / Loans">Stockholder Advances / Loans</label><input type="text" class="money" id="f-advances" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Capital Infusion">Capital Infusion</label><input type="text" class="money" id="f-capital" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div><label title="Refunds / CA Returns">Refunds / CA Returns</label><input type="text" class="money" id="f-refunds" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+          <div class="span2 note">Loans, capital and refunds are cash in, but not income.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span id="status-msg"></span>
+  <span class="tot"><i style="background:var(--c-lab)"></i>Revenue <b id="calc-revenue">₱0</b></span>
+  <span class="tot"><i style="background:var(--c-oth)"></i>NonRevenue <b id="calc-nonrev">₱0</b></span>
+  <span class="tot grand" id="unalloc-box">Unallocated <b id="calc-unalloc">₱0</b></span>
+  <button id="save-btn">Save entry</button>
+  <div class="hidden"><div id="calc-label">—</div></div>
+</div>
+
+<script>
+let projects = [];  // {id, client, ref, price, collected, balance, status}
+let accounts = [];  // {id, name, balance}
+
+const REV_IDS = ['f-contract','f-addendum','f-service','f-materials','f-other'];
+const NONREV_IDS = ['f-advances','f-capital','f-refunds'];
+const MONEY_IDS = ['f-amount','f-cwt','f-np-price', ...REV_IDS, ...NONREV_IDS];
+const MILESTONE_PCT = {
+  '40% Upon Signing': 0.40,
+  '40% Before Purchase of Materials': 0.40,
+  '20% Upon Commissioning': 0.20
+};
+
+function num(id) {
+  const el = document.getElementById(id);
+  const v = parseFloat(el ? String(el.value).replace(/,/g, '') : '');
+  return isNaN(v) ? 0 : v;
+}
+function fmt(v) { return v ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : ''; }
+function setMoney(id, v) { document.getElementById(id).value = fmt(v); }
+function peso(n) { return '₱' + Math.round(n).toLocaleString('en-US'); }
+function peso2(n) {
+  return '₱' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function sumIds(ids) { return ids.reduce((a, id) => a + num(id), 0); }
+function findProject(name) {
+  const key = (name || '').trim().toLowerCase();
+  if (!key) return null;
+  return projects.find(p => p.client.trim().toLowerCase() === key) ||
+         projects.find(p => (p.ref || '').trim().toLowerCase() === key) || null;
+}
+
+MONEY_IDS.forEach(id => {
+  const inp = document.getElementById(id);
+  inp.addEventListener('input', recompute);
+  inp.addEventListener('focus', () => { inp.value = inp.value.replace(/,/g, ''); });
+  inp.addEventListener('blur', () => { inp.value = fmt(num(id)); recompute(); });
+});
+
+function recompute() {
+  const revenue = sumIds(REV_IDS);
+  const nonrev = sumIds(NONREV_IDS);
+  const amount = num('f-amount');
+  const unalloc = Math.round(amount - revenue - nonrev);
+  document.getElementById('calc-revenue').textContent = peso(revenue);
+  document.getElementById('calc-nonrev').textContent = peso(nonrev);
+  document.getElementById('calc-unalloc').textContent = peso(unalloc);
+  const box = document.getElementById('unalloc-box');
+  box.className = 'tot grand ' + (amount ? (unalloc === 0 ? 'ok' : 'off') : '');
+  [['sub-rcpt', amount], ['sub-rev', revenue], ['sub-nonrev', nonrev]].forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    el.textContent = peso(v);
+    el.className = 'sub' + (v ? ' on' : '');
+  });
+  document.querySelectorAll('.cat input.money').forEach(i => i.classList.toggle('filled', num(i.id) !== 0));
+  const ms = document.getElementById('f-milestone');
+  ms.classList.toggle('filled', !!ms.value);
+  const dateVal = document.getElementById('f-date').value;
+  const proj = document.getElementById('f-project').value.trim();
+  document.getElementById('calc-label').textContent = (dateVal || '—') + ' - ' + (proj || 'No project');
+  updateMilestoneHint();
+}
+
+function updateProjectBox() {
+  const name = document.getElementById('f-project').value.trim();
+  const match = findProject(name);
+  const box = document.getElementById('new-project-box');
+  const info = document.getElementById('proj-info');
+  if (name && !match) {
+    box.classList.remove('hidden');
+    info.className = 'chip';
+    info.textContent = 'New project';
+  } else {
+    box.classList.add('hidden');
+    if (match) {
+      info.className = 'chip';
+      let html = '';
+      if (match.price) {
+        html = 'Contract <strong>' + peso(match.price) + '</strong> <span class="sep">|</span> Collected <strong>' +
+          peso(match.collected) + '</strong> <span class="sep">|</span> Balance <strong class="' +
+          (match.balance > 0 ? 'bad' : 'good') + '">' + peso(match.balance) + '</strong>';
+      } else {
+        html = (match.ref || match.client) + ' <span class="sep">|</span> no contract price yet';
+      }
+      info.innerHTML = html;
+    } else {
+      info.className = 'chip hidden';
+    }
+  }
+  updateMilestoneHint();
+}
+
+function currentContractPrice() {
+  const match = findProject(document.getElementById('f-project').value);
+  if (match) return match.price || 0;
+  return num('f-np-price');
+}
+
+function fillMilestone(due) {
+  if (!num('f-amount')) setMoney('f-amount', due);
+  setMoney('f-contract', due);
+  recompute();
+}
+
+function updateMilestoneHint() {
+  const hint = document.getElementById('milestone-hint');
+  const ms = document.getElementById('f-milestone').value;
+  const pct = MILESTONE_PCT[ms];
+  const price = currentContractPrice();
+  let due = 0, label = '';
+  if (pct && price) { due = Math.round(price * pct); label = 'due '; }
+  else if (ms === 'Full Payment' && price) {
+    const match = findProject(document.getElementById('f-project').value);
+    due = match ? match.balance : price; label = 'balance ';
+  }
+  if (due) {
+    hint.innerHTML = '· ' + label + peso(due) + ' <a href="#" class="fill-link" id="fill-milestone">fill</a>';
+    document.getElementById('fill-milestone').onclick = (e) => { e.preventDefault(); fillMilestone(due); };
+  } else {
+    hint.textContent = '';
+  }
+}
+
+function updateCashBar() {
+  const bar = document.getElementById('cash-balance-bar');
+  const text = document.getElementById('cash-balance-text');
+  const id = parseInt(document.getElementById('f-account').value, 10);
+  const acct = accounts.find(a => a.id === id);
+  if (!acct) { bar.classList.add('hidden'); return; }
+  text.innerHTML = acct.name + ' <strong>' + peso2(acct.balance) + '</strong>';
+  bar.classList.remove('hidden');
+}
+
+['f-date', 'f-payor'].forEach(id => document.getElementById(id).addEventListener('input', recompute));
+document.getElementById('f-project').addEventListener('input', () => { updateProjectBox(); recompute(); });
+document.getElementById('f-np-price').addEventListener('input', updateMilestoneHint);
+document.getElementById('f-milestone').addEventListener('change', recompute);
+document.getElementById('f-account').addEventListener('change', updateCashBar);
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function wireDateField(textId, nativeId, btnId) {
+  const textEl = document.getElementById(textId);
+  const nativeEl = document.getElementById(nativeId);
+  const btnEl = document.getElementById(btnId);
+  btnEl.addEventListener('click', () => {
+    if (DATE_RE.test(textEl.value)) nativeEl.value = textEl.value;
+    if (nativeEl.showPicker) { nativeEl.showPicker(); } else { nativeEl.focus(); nativeEl.click(); }
+  });
+  nativeEl.addEventListener('input', () => {
+    if (nativeEl.value) {
+      textEl.value = nativeEl.value;
+      textEl.classList.remove('invalid');
+      textEl.dispatchEvent(new Event('input'));
+    }
+  });
+  textEl.addEventListener('blur', () => {
+    if (textEl.value && !DATE_RE.test(textEl.value)) textEl.classList.add('invalid');
+    else textEl.classList.remove('invalid');
+  });
+  textEl.addEventListener('input', () => textEl.classList.remove('invalid'));
+}
+wireDateField('f-date', 'f-date-native', 'f-date-pick');
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = kind || '';
+}
+
+async function loadAccounts() {
+  try {
+    const t = await grist.docApi.fetchTable('Cash_Accounts');
+    const prev = document.getElementById('f-account').value;
+    accounts = (t.id || []).map((id, i) => ({ id, name: t.account[i] || ('#' + id), balance: t.balance[i] || 0 }));
+    const sel = document.getElementById('f-account');
+    sel.innerHTML = '';
+    accounts.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+    updateCashBar();
+  } catch (e) {
+    setStatus('Could not load Cash_Accounts: ' + (e && e.message ? e.message : e), 'error');
+  }
+}
+
+async function loadProjects() {
+  try {
+    const t = await grist.docApi.fetchTable('Projects');
+    projects = (t.id || []).map((id, i) => ({
+      id,
+      client: t.client[i] || '',
+      ref: t.ref_no[i] || '',
+      price: t.contract_price[i] || 0,
+      collected: t.collected[i] || 0,
+      balance: t.balance_due[i] || 0,
+      status: t.status[i] || ''
+    }));
+    const dl = document.getElementById('project-list');
+    dl.innerHTML = '';
+    [...projects].sort((a, b) => a.client.localeCompare(b.client, undefined, { sensitivity: 'base' }))
+      .forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.client;
+        opt.label = [p.ref, p.status].filter(Boolean).join(' · ');
+        dl.appendChild(opt);
+      });
+    updateProjectBox();
+  } catch (e) { /* autocomplete just won't populate */ }
+}
+
+async function loadDefaults() {
+  let dateSet = false;
+  try {
+    const t = await grist.docApi.fetchTable('Daily_cash_collections');
+    const ids = t.id || [];
+    if (ids.length) {
+      let maxIdx = 0;
+      for (let i = 1; i < ids.length; i++) if (ids[i] > ids[maxIdx]) maxIdx = i;
+      if (t.date[maxIdx]) {
+        document.getElementById('f-date').value = new Date(t.date[maxIdx] * 1000).toISOString().slice(0, 10);
+        dateSet = true;
+      }
+      if (t.encoded_by[maxIdx]) document.getElementById('f-encoded-by').value = t.encoded_by[maxIdx];
+      if (t.method[maxIdx]) document.getElementById('f-method').value = t.method[maxIdx];
+      if (t.account[maxIdx]) document.getElementById('f-account').value = t.account[maxIdx];
+    }
+  } catch (e) { /* fall through */ }
+  if (!dateSet) document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+  updateCashBar();
+  recompute();
+}
+
+function resetFormAfterSave() {
+  ['f-project','f-payor','f-np-site','f-np-ref', ...MONEY_IDS]
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('f-milestone').value = '';
+  updateProjectBox();
+  recompute();
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const date = document.getElementById('f-date').value;
+  const encodedBy = document.getElementById('f-encoded-by').value;
+  const accountId = parseInt(document.getElementById('f-account').value, 10);
+  const method = document.getElementById('f-method').value;
+  const amount = num('f-amount');
+  const projName = document.getElementById('f-project').value.trim();
+
+  if (!date || !encodedBy || !accountId || !method || !amount) {
+    setStatus('Fill in date, encoded by, deposited to, method and amount before saving.', 'error');
+    return;
+  }
+  if (!DATE_RE.test(date)) { setStatus('Date must be in YYYY-MM-DD format.', 'error'); return; }
+  const unalloc = Math.round(amount - sumIds(REV_IDS) - sumIds(NONREV_IDS));
+  if (unalloc !== 0) {
+    setStatus(unalloc > 0
+      ? peso(unalloc) + ' of the amount is not yet assigned to a line.'
+      : 'Distribution lines exceed the amount received by ' + peso(Math.abs(unalloc)) + '.', 'error');
+    return;
+  }
+  if ((num('f-contract') || num('f-addendum')) && !projName) {
+    setStatus('Contract/addendum payments need a project.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  setStatus('Saving...', '');
+  try {
+    let projectId = 0;
+    if (projName) {
+      const match = findProject(projName);
+      if (match) {
+        projectId = match.id;
+      } else {
+        const res = await grist.docApi.applyUserActions([
+          ['AddRecord', 'Projects', null, {
+            client: projName,
+            site: document.getElementById('f-np-site').value.trim(),
+            job_type: document.getElementById('f-np-type').value,
+            contract_price: num('f-np-price') || null,
+            ref_no: document.getElementById('f-np-ref').value.trim(),
+            status: 'Signed'
+          }]
+        ]);
+        projectId = res.retValues[0];
+      }
+    }
+    const rec = {
+      encoded_by: encodedBy,
+      date: Math.floor(new Date(date + 'T00:00:00Z').getTime() / 1000),
+      account: accountId,
+      method: method,
+      payor: document.getElementById('f-payor').value.trim(),
+      milestone: document.getElementById('f-milestone').value,
+      amount: amount,
+      contract_payment: num('f-contract'),
+      addendum_payment: num('f-addendum'),
+      service_fees: num('f-service'),
+      materials_sale: num('f-materials'),
+      other_income: num('f-other'),
+      stockholder_advances: num('f-advances'),
+      capital_infusion: num('f-capital'),
+      refunds_returns: num('f-refunds'),
+      cwt_withheld: num('f-cwt')
+    };
+    if (projectId) rec.project = projectId;
+    await grist.docApi.applyUserActions([['AddRecord', 'Daily_cash_collections', null, rec]]);
+    setStatus('Saved: ' + document.getElementById('calc-label').textContent + ' — ' + peso(amount), 'success');
+    resetFormAfterSave();
+    loadProjects();
+    loadAccounts();
+  } catch (e) {
+    setStatus('Could not save: ' + (e && e.message ? e.message : e), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+grist.ready({ requiredAccess: 'full' });
+loadAccounts().then(loadDefaults);
+loadProjects();
+
+setInterval(() => { loadAccounts(); loadProjects(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { loadAccounts(); loadProjects(); }
+});
+window.addEventListener('focus', () => { loadAccounts(); loadProjects(); });
+</script>
+</body>
+</html>
