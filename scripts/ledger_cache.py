@@ -40,8 +40,9 @@ Rules (match the Tax/Contribution variance tables in the Taxes/Contributions doc
 Idempotent full rebuild: upserts by `ledger_key`, deletes stale keys.
 
 Also (ensure_variance_rows) adds any missing (client, year, month) rows to
-Tax_Variance_Monthly_ByClient and Contribution_Variance_Monthly_ByClient so new
-activity always shows up on the variance pages.
+Contribution_Variance_Monthly_ByClient so new activity always shows up on the
+variance pages. (Tax_Variance_Monthly_ByClient was removed 2026-10-27 to free
+rows under the Free-plan cap -- per Ayk.)
 Light mode (2026-09-26): each table is fetched once per run (shared with
 fund_refresh.py) and only changed ledger rows are written. The workflow is
 manual-only now -- run it after the firm-wide refresh.
@@ -316,13 +317,14 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
 
 
 # ---------------------------------------------------------------- variance-row upkeep
-# Tax_Variance_Monthly_ByClient / Contribution_Variance_Monthly_ByClient only show a
+# Contribution_Variance_Monthly_ByClient only shows a
 # (client, month) that has a row; nothing else creates those rows. This adds any missing
 # (client, year, month) that has a linked, dated collection or remittance. The formula
 # columns fill in collected/remitted/variance on their own. Never deletes rows.
 VARIANCE_SOURCES = {
-    TAX_DOC: ("Tax_Variance_Monthly_ByClient",
-              [("Tax_Collections", "date"), ("Tax_Remittances", "date_paid")]),
+    # TAX_DOC entry removed 2026-10-27: Tax_Variance_Monthly_ByClient deleted from the
+    # Taxes doc (row cap). Per-client tax variance now = Taxes Clients.tax_variance and
+    # Tax_Contri_Ledger.tax_variance (office docs).
     CONTRIB_DOC: ("Contribution_Variance_Monthly_ByClient",
                   [("Contribution_Collections", "date"), ("Contribution_Remittances", "date")]),
 }
