@@ -200,6 +200,10 @@ def collect_transactions():
         t = base(tax_clients, f, f.get("date"))
         t.update({"g": "T", "k": "C", "t": "", "a": money(f.get("amount")),
                   "ch": "", "m": "", "e": "", "p": None, "id": r["id"]})
+        if not f.get("source_collection_row_id"):
+            # Adjustment with no office collection behind it (2025 carry-over, pre-Grist
+            # balance): office widgets add these on top of their live collections.
+            t["x"] = 1
         if t["a"]:
             out.append(fold(t, f.get("client") or 0, True))
 
@@ -222,6 +226,8 @@ def collect_transactions():
             t = base(con_clients, f, f.get("date"))
             t.update({"g": "S", "k": "C", "t": label, "a": amt, "ch": "", "m": "", "e": "",
                       "p": None, "id": r["id"]})
+            if not f.get("source_collection_row_id"):
+                t["x"] = 1  # adjustment, not an office collection
             out.append(fold(t, 0, False))
 
     for r in list_all(CONTRIB_DOC, "Contribution_Remittances"):
@@ -281,6 +287,8 @@ def build_office_rows(office, office_doc, source_id_field, txns, synced_at):
             g["name"] = office_clients[oc]["client_name"]
             g["code"] = office_clients[oc].get("A") or g["code"]
         x = {k: t[k] for k in ("d", "g", "k", "t", "a", "ch", "m", "e", "p", "id", "o")}
+        if t.get("x"):
+            x["x"] = 1  # collection adjustment (carry-over / pre-Grist), not in office books
         if t.get("n"):
             x["n"] = t["n"]  # member taxpayer, when folded into a corporate group
         g["txns"].append(x)
