@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Cash Collections Report</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --bg:#fff; --card-bg:#f7f6f2; --border:#dfdcd3; --muted:#6b6a66; --text:#1f1e1c;
+    --accent:#185fa5; --accent-bg:#e6f1fb; --danger:#a32d2d; --danger-bg:#fcebeb;
+    --success:#3b6d11; --success-bg:#eaf3de; --radius:8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#26282c; --card-bg:#303338; --border:#45484e; --muted:#9a9da2; --text:#eceef0;
+      --accent:#5b9bd5; --accent-bg:#2b3a4a; --danger:#e88a8a; --danger-bg:#4a2b2b;
+      --success:#93c47d; --success-bg:#2b3f26;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+         color:var(--text); background:var(--bg); margin:0; padding:10px 12px; font-size:12.5px; }
+  h1 { font-size:15px; margin:0; font-weight:700; }
+  h2 { font-size:11px; margin:10px 0 5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .bar .grow { flex:1; }
+  input[type=date], input[type=month], select {
+    height:26px; padding:0 6px; border:1px solid var(--border); border-radius:6px;
+    font:inherit; color:var(--text); background:var(--bg);
+  }
+  button { font:inherit; font-weight:600; height:26px; padding:0 10px; border-radius:6px;
+           border:1px solid var(--border); background:var(--card-bg); color:var(--text); cursor:pointer; }
+  button:hover { background:var(--border); }
+  button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .cards { display:flex; gap:6px; flex-wrap:wrap; }
+  .card { background:var(--card-bg); border-radius:6px; padding:6px 10px; min-width:110px; }
+  .card .k { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .card .v { font-size:15px; font-weight:700; }
+  .card.main .v { color:var(--accent); }
+  .wrap { overflow:auto; border:1px solid var(--border); border-radius:var(--radius); }
+  table { border-collapse:collapse; width:100%; }
+  th { position:sticky; top:0; background:var(--card-bg); font-size:10px; color:var(--muted);
+       text-transform:uppercase; letter-spacing:.03em; padding:5px 6px; text-align:right;
+       border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+  td { padding:3px 6px; border-bottom:1px solid var(--border); text-align:right; white-space:nowrap;
+       font-variant-numeric:tabular-nums; }
+  th.l, td.l { text-align:left; }
+  td.z { color:var(--border); }
+  tr.tot td { font-weight:700; background:var(--card-bg); border-top:2px solid var(--border); }
+  tr.err td { background:var(--danger-bg); }
+  tr.click { cursor:pointer; }
+  tr.click:hover td { background:var(--accent-bg); }
+  .pill { display:inline-block; padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:600; }
+  .pill.ok { background:var(--success-bg); color:var(--success); }
+  .pill.bad { background:var(--danger-bg); color:var(--danger); }
+  .flags { margin:0; padding-left:18px; color:var(--danger); }
+  .muted { color:var(--muted); }
+  .grid2 { display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:10px; align-items:start; }
+  @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } }
+  .bar-cell { position:relative; }
+  .bar-cell span.fill { position:absolute; left:0; top:3px; bottom:3px; background:var(--accent-bg); border-radius:3px; z-index:0; }
+  .bar-cell span.txt { position:relative; z-index:1; }
+  @media print {
+    .noprint { display:none !important; }
+    body { padding:0; font-size:10.5px; }
+    .wrap { overflow:visible; border:none; }
+    th { position:static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1 id="title">Daily Cash Collections</h1>
+  <span class="grow"></span>
+  <span class="noprint">
+    <button id="mDay" class="on">Day</button>
+    <button id="mMonth">Month</button>
+  </span>
+  <span class="noprint" id="dayCtl">
+    <button id="prev" title="Previous day with collections">◀</button>
+    <input type="date" id="day">
+    <button id="next" title="Next day with collections">▶</button>
+    <button id="latest">Latest</button>
+  </span>
+  <span class="noprint" id="monthCtl" style="display:none">
+    <input type="month" id="month">
+  </span>
+  <select id="handler" class="noprint" title="Filter by account handler"><option value="">All handlers</option></select>
+  <button id="print" class="noprint">Print</button>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="grid2">
+  <div>
+    <h2>Distribution summary</h2>
+    <div class="wrap"><table id="dist"></table></div>
+  </div>
+  <div>
+    <h2 id="flagTitle">Checks</h2>
+    <div id="flags"></div>
+  </div>
+</div>
+
+<h2 id="detailTitle">Entries</h2>
+<div class="wrap" style="max-height:60vh"><table id="detail"></table></div>
+<p class="muted" style="margin-top:6px">Tax = amount less fee and contribution lines (the balancing figure). Jan–Jun 2026 entries were archived out of Grist and are not shown here.</p>
+
+<script>
+// Distribution buckets, in dRpt order. Legacy combined Q/A column only shows if used.
+const BUCKETS = [
+  { key:'monthly_fees',     label:'Monthly',   grp:'fee' },
+  { key:'quarterly_fees',   label:'Quarterly', grp:'fee' },
+  { key:'annual_fees',      label:'Annual',    grp:'fee' },
+  { key:'quarterly_annual', label:'Q/A (old)', grp:'fee', legacy:true },
+  { key:'iar_fees',         label:'IAR',       grp:'fee' },
+  { key:'other_fees',       label:'Other Fees',grp:'fee' },
+  { key:'printing',         label:'Printing',  grp:'fee' },
+  { key:'sss',              label:'SSS',       grp:'contri' },
+  { key:'phic',             label:'PHIC',      grp:'contri' },
+  { key:'hdmf',             label:'HDMF',      grp:'contri' },
+  { key:'others_permits',   label:'Permits',   grp:'contri' },
+  { key:'tax',              label:'Tax',       grp:'tax' },
+];
+
+let rows = [], clients = {}, office = '';
+let mode = 'day', curDay = null, curMonth = null;
+
+const $ = id => document.getElementById(id);
+const n = v => (typeof v === 'number' && isFinite(v) ? v : 0);
+const peso = v => (v < 0 ? '-₱' : '₱') + Math.abs(Math.round(v)).toLocaleString('en-PH');
+const cell = v => Math.round(v) === 0 ? '<td class="z">–</td>' : `<td>${peso(v)}</td>`;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isoOf = ts => new Date(ts * 1000).toISOString().slice(0, 10);
+const nice = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-PH',
+  { timeZone:'UTC', weekday:'short', month:'short', day:'numeric', year:'numeric' });
+const niceMonth = ym => new Date(ym + '-01T00:00:00Z').toLocaleDateString('en-PH',
+  { timeZone:'UTC', month:'long', year:'numeric' });
+
+async function load() {
+  const [c, t] = await Promise.all([
+    grist.docApi.fetchTable('Clients'),
+    grist.docApi.fetchTable('Daily_cash_collections'),
+  ]);
+  clients = {};
+  (c.id || []).forEach((id, i) => clients[id] = { code: c.A?.[i] || '', handler: c.C?.[i] || '' });
+  const idx = (t.id || []).map((_, i) => i).filter(i => typeof t.B[i] === 'number');
+  rows = idx.map(i => {
+    const id = t.id[i];
+    const r = { id, date: isoOf(t.B[i]), amount: n(t.amount?.[i]), method: t.method?.[i] || '—',
+                client: t.client?.[i] || 0, encoder: t.A?.[i] || '' };
+    if (!office && t.C?.[i]) office = t.C[i];
+    let fees = 0;
+    for (const b of BUCKETS) if (b.key !== 'tax') {
+      r[b.key] = n(t[b.key]?.[i]);
+      if (b.grp === 'fee') fees += r[b.key];
+    }
+    r.fees = fees;
+    r.contri = r.sss + r.phic + r.hdmf + r.others_permits;
+    r.tax = Math.round(r.amount - fees - r.contri);
+    const cl = clients[r.client];
+    r.code = cl ? cl.code : '';
+    r.handler = cl ? cl.handler : '';
+    return r;
+  });
+  rows.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+  $('title').textContent = 'Daily Cash Collections' + (office ? ' — ' + office : '');
+  const hs = [...new Set(rows.map(r => r.handler).filter(Boolean))].sort();
+  const sel = $('handler'), keep = sel.value;
+  sel.innerHTML = '<option value="">All handlers</option>' + hs.map(h => `<option>${esc(h)}</option>`).join('');
+  sel.value = hs.includes(keep) ? keep : '';
+  if (!curDay && rows.length) curDay = rows[rows.length - 1].date;
+  if (!curMonth && curDay) curMonth = curDay.slice(0, 7);
+  render();
+}
+
+function scoped() {
+  const h = $('handler').value;
+  return rows.filter(r => (mode === 'day' ? r.date === curDay : r.date.slice(0, 7) === curMonth)
+                       && (!h || r.handler === h));
+}
+
+function sum(list, key) { return list.reduce((s, r) => s + n(r[key]), 0); }
+
+function render() {
+  $('day').value = curDay || '';
+  $('month').value = curMonth || '';
+  $('dayCtl').style.display = mode === 'day' ? '' : 'none';
+  $('monthCtl').style.display = mode === 'month' ? '' : 'none';
+  $('mDay').classList.toggle('on', mode === 'day');
+  $('mMonth').classList.toggle('on', mode === 'month');
+
+  const list = scoped();
+  const methods = [...new Set(rows.map(r => r.method))].sort((a, b) => a === 'Cash' ? -1 : b === 'Cash' ? 1 : a.localeCompare(b));
+  const showLegacy = list.some(r => r.quarterly_annual);
+  const buckets = BUCKETS.filter(b => !b.legacy || showLegacy);
+  const total = sum(list, 'amount');
+  const period = mode === 'day' ? (curDay ? nice(curDay) : '—') : (curMonth ? niceMonth(curMonth) : '—');
+
+  // Cards
+  let cards = `<div class="card main"><div class="k">Collected · ${esc(period)}</div><div class="v">${peso(total)}</div></div>`;
+  for (const m of methods) {
+    const v = sum(list.filter(r => r.method === m), 'amount');
+    if (v || m === 'Cash') cards += `<div class="card"><div class="k">${esc(m)}</div><div class="v">${peso(v)}</div></div>`;
+  }
+  cards += `<div class="card"><div class="k">Fees (revenue)</div><div class="v">${peso(sum(list,'fees'))}</div></div>`;
+  cards += `<div class="card"><div class="k">Contributions</div><div class="v">${peso(sum(list,'contri'))}</div></div>`;
+  cards += `<div class="card"><div class="k">Tax</div><div class="v">${peso(sum(list,'tax'))}</div></div>`;
+  cards += `<div class="card"><div class="k">Entries</div><div class="v">${list.length}</div></div>`;
+  $('cards').innerHTML = cards;
+
+  // Distribution summary: bucket × method
+  const usedMethods = methods.filter(m => list.some(r => r.method === m));
+  let d = `<tr><th class="l">Distribution</th>${usedMethods.map(m => `<th>${esc(m)}</th>`).join('')}<th>Total</th><th>%</th></tr>`;
+  const grpRow = (label, key) => {
+    const v = sum(list, key);
+    return `<tr class="tot"><td class="l">${label}</td>${usedMethods.map(m => cell(sum(list.filter(r => r.method === m), key))).join('')}${cell(v)}<td>${total ? Math.round(v / total * 100) + '%' : ''}</td></tr>`;
+  };
+  let lastGrp = null;
+  for (const b of buckets) {
+    if (lastGrp && b.grp !== lastGrp) d += grpRow(lastGrp === 'fee' ? 'Fees subtotal' : 'Contributions subtotal', lastGrp === 'fee' ? 'fees' : 'contri');
+    lastGrp = b.grp;
+    const v = sum(list, b.key);
+    const pct = total ? v / total * 100 : 0;
+    d += `<tr><td class="l">${b.label}</td>${usedMethods.map(m => cell(sum(list.filter(r => r.method === m), b.key))).join('')}
+          <td class="bar-cell"><span class="fill" style="width:${Math.max(0, Math.min(100, pct))}%"></span><span class="txt">${Math.round(v) ? peso(v) : '–'}</span></td>
+          <td>${v ? Math.round(pct) + '%' : ''}</td></tr>`;
+  }
+  d += grpRow('Total collected', 'amount');
+  $('dist').innerHTML = list.length ? d : '<tr><td class="l muted">No collections for this period.</td></tr>';
+
+  // Checks
+  const flags = [];
+  for (const r of list) {
+    const who = `${r.code || 'No client'}${mode === 'month' ? ' (' + r.date.slice(5) + ')' : ''} — ${peso(r.amount)}`;
+    if (r.tax < 0) flags.push(`${who}: fee + contribution lines exceed amount by ${peso(-r.tax)}`);
+    if (!r.client) flags.push(`${who}: no client tagged`);
+    if (!r.amount) flags.push(`${who}: zero amount`);
+  }
+  $('flags').innerHTML = flags.length
+    ? `<ul class="flags">${flags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`
+    : (list.length ? '<span class="pill ok">All entries balance</span>' : '');
+
+  // Detail
+  const head = `<tr>${mode === 'day'
+      ? '<th class="l">#</th><th class="l">Client</th><th class="l">Handler</th><th class="l">Method</th>'
+      : '<th class="l">Date</th><th class="l">Entries</th>'}
+    <th>Amount</th>${buckets.map(b => `<th>${b.label}</th>`).join('')}${mode === 'day' ? '<th class="l">Check</th>' : ''}</tr>`;
+  let body = '';
+  if (mode === 'day') {
+    list.forEach((r, i) => {
+      body += `<tr class="${r.tax < 0 ? 'err' : ''}"><td class="l muted">${i + 1}</td><td class="l">${esc(r.code || 'No client')}</td>
+        <td class="l">${esc(r.handler)}</td><td class="l">${esc(r.method)}</td><td><b>${peso(r.amount)}</b></td>
+        ${buckets.map(b => cell(r[b.key])).join('')}
+        <td class="l">${r.tax < 0 ? '<span class="pill bad">Over</span>' : '<span class="pill ok">OK</span>'}</td></tr>`;
+    });
+  } else {
+    const days = [...new Set(list.map(r => r.date))];
+    for (const dd of days) {
+      const L = list.filter(r => r.date === dd);
+      body += `<tr class="click${L.some(r => r.tax < 0) ? ' err' : ''}" data-day="${dd}"><td class="l">${esc(nice(dd))}</td>
+        <td class="l">${L.length}</td><td><b>${peso(sum(L,'amount'))}</b></td>${buckets.map(b => cell(sum(L, b.key))).join('')}</tr>`;
+    }
+  }
+  if (list.length) {
+    body += `<tr class="tot"><td class="l" colspan="${mode === 'day' ? 4 : 2}">Total</td><td>${peso(total)}</td>
+      ${buckets.map(b => cell(sum(list, b.key))).join('')}${mode === 'day' ? '<td></td>' : ''}</tr>`;
+  }
+  $('detail').innerHTML = head + body;
+  $('detailTitle').textContent = mode === 'day' ? 'Entries' : 'By day (click a day to open it)';
+  document.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => { curDay = tr.dataset.day; mode = 'day'; render(); });
+}
+
+function step(dir) {
+  const days = [...new Set(rows.map(r => r.date))];
+  if (!days.length) return;
+  if (dir < 0) { const p = days.filter(d => d < curDay); if (p.length) curDay = p[p.length - 1]; }
+  else { const q = days.filter(d => d > curDay); if (q.length) curDay = q[0]; }
+  curMonth = curDay.slice(0, 7);
+  render();
+}
+
+$('mDay').onclick = () => { mode = 'day'; render(); };
+$('mMonth').onclick = () => { mode = 'month'; curMonth = (curDay || '').slice(0, 7) || curMonth; render(); };
+$('prev').onclick = () => step(-1);
+$('next').onclick = () => step(1);
+$('latest').onclick = () => { if (rows.length) { curDay = rows[rows.length - 1].date; curMonth = curDay.slice(0, 7); render(); } };
+$('day').onchange = e => { if (e.target.value) { curDay = e.target.value; curMonth = curDay.slice(0, 7); render(); } };
+$('month').onchange = e => { if (e.target.value) { curMonth = e.target.value; render(); } };
+$('handler').onchange = render;
+$('print').onclick = () => window.print();
+
+// Reload when the table changes (new entries from Quick Entry show up without a page refresh).
+let timer = null;
+grist.ready({ requiredAccess: 'full' });
+grist.onRecords(() => { clearTimeout(timer); timer = setTimeout(load, 400); });
+load();
+</script>
+</body>
+</html>
